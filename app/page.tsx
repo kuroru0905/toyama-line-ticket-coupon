@@ -1,19 +1,46 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import liff from '@line/liff';
 
-type TabKey = 'ticket' | 'coupon';
+type SponsorCoupon = {
+  id: string;
+  shop_name: string;
+  benefit_title: string;
+  benefit_detail: string;
+  is_published: boolean;
+  is_used: boolean;
+  used_at: string | null;
+};
 
-export default function HomePage() {
-  const [activeTab, setActiveTab] = useState<TabKey>('ticket');
+export default function SponsorCouponPage() {
   const [liffStatus, setLiffStatus] = useState<string>('確認中');
-  const [lineUserId, setLineUserId] = useState<string | null>(null);
   const [displayName, setDisplayName] = useState<string>('ゲスト');
-  const [ticketIssued, setTicketIssued] = useState<boolean>(false);
-  const [ticketUsed, setTicketUsed] = useState<boolean>(false);
-  const [couponUnlocked, setCouponUnlocked] = useState<boolean>(false);
-  const [couponUsed, setCouponUsed] = useState<boolean>(false);
+  const [coupons, setCoupons] = useState<SponsorCoupon[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [usingId, setUsingId] = useState<string | null>(null);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  const fetchCoupons = useCallback(async () => {
+    try {
+      setErrorMsg(null);
+      const res = await fetch('/api/coupons', { cache: 'no-store' });
+      const json = await res.json();
+      if (!res.ok) {
+        setErrorMsg(json.error || 'クーポンの取得に失敗しました');
+        return;
+      }
+      setCoupons(json.coupons ?? []);
+    } catch {
+      setErrorMsg('通信エラーが発生しました');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchCoupons();
+  }, [fetchCoupons]);
 
   useEffect(() => {
     const liffId = process.env.NEXT_PUBLIC_LIFF_ID;
@@ -25,10 +52,13 @@ export default function HomePage() {
     liff
       .init({ liffId })
       .then(async () => {
-        setLiffStatus(liff.isInClient() ? 'LINEアプリ内（LIFF接続済）' : '外部ブラウザ（LIFF初期化済）');
+        setLiffStatus(
+          liff.isInClient()
+            ? 'LINEアプリ内（LIFF接続済）'
+            : '外部ブラウザ（LIFF初期化済）'
+        );
         if (liff.isLoggedIn()) {
           const profile = await liff.getProfile();
-          setLineUserId(profile.userId);
           setDisplayName(profile.displayName);
         }
       })
@@ -37,158 +67,148 @@ export default function HomePage() {
       });
   }, []);
 
-  const handleIssueTicket = () => {
-    setTicketIssued(true);
-    setTicketUsed(false);
-  };
+  const handleUseCoupon = async (coupon: SponsorCoupon) => {
+    if (coupon.is_used || usingId) return;
+    const ok = window.confirm(
+      `【${coupon.shop_name}】\n「${coupon.benefit_title}」を使用済みにしますか？\n一度使用すると元に戻せません。`
+    );
+    if (!ok) return;
 
-  const handleUseTicket = () => {
-    if (!ticketIssued || ticketUsed) return;
-    setTicketUsed(true);
-    setCouponUnlocked(true);
-  };
-
-  const handleUseCoupon = () => {
-    if (!couponUnlocked || couponUsed) return;
-    setCouponUsed(true);
+    try {
+      setUsingId(coupon.id);
+      setErrorMsg(null);
+      const res = await fetch(`/api/coupons/${coupon.id}/use`, {
+        method: 'POST',
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        setErrorMsg(json.error || 'クーポンの使用処理に失敗しました');
+        await fetchCoupons();
+        return;
+      }
+      setCoupons((prev) =>
+        prev.map((item) => (item.id === coupon.id ? json.coupon : item))
+      );
+    } catch {
+      setErrorMsg('通信エラーが発生しました');
+    } finally {
+      setUsingId(null);
+    }
   };
 
   return (
     <main style={{ maxWidth: 520, margin: '0 auto', padding: '24px 16px 64px' }}>
       <header style={{ marginBottom: 20 }}>
         <p style={{ fontSize: 12, fontWeight: 700, color: '#0284c7', margin: '0 0 4px' }}>
-          TOYAMA KIKAKU LINE O2O
+          TOYAMA KIKAKU SPONSOR COUPON
         </p>
-        <h1 style={{ fontSize: 22, margin: '0 0 8px' }}>
-          ライブチケット＆スポンサークーポン
+        <h1 style={{ fontSize: 22, margin: '0 0 6px' }}>
+          スポンサー店舗クーポン
         </h1>
         <p style={{ fontSize: 13, color: '#475569', margin: 0 }}>
-          ユーザー：{displayName} {lineUserId ? `(${lineUserId.slice(0, 8)}...)` : ''}
-        </p>
-        <p style={{ fontSize: 12, color: '#64748b', margin: '4px 0 0' }}>
-          状態：{liffStatus}
+          ユーザー：{displayName} ／ 状態：{liffStatus}
         </p>
       </header>
 
-      <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
-        <button
-          type="button"
-          onClick={() => setActiveTab('ticket')}
+      {errorMsg && (
+        <div
           style={{
-            flex: 1,
-            padding: '10px 12px',
+            marginBottom: 16,
+            padding: 12,
             borderRadius: 8,
-            border: '1px solid #cbd5e1',
-            backgroundColor: activeTab === 'ticket' ? '#0f172a' : '#ffffff',
-            color: activeTab === 'ticket' ? '#ffffff' : '#0f172a',
-            fontWeight: 700,
-            cursor: 'pointer',
+            backgroundColor: '#fef2f2',
+            border: '1px solid #fecaca',
+            color: '#b91c1c',
+            fontSize: 13,
           }}
         >
-          1. チケット（購入・発券・使用）
-        </button>
-        <button
-          type="button"
-          onClick={() => setActiveTab('coupon')}
+          {errorMsg}
+        </div>
+      )}
+
+      {loading ? (
+        <p style={{ fontSize: 14, color: '#64748b' }}>クーポンを読み込み中...</p>
+      ) : coupons.length === 0 ? (
+        <div
           style={{
-            flex: 1,
-            padding: '10px 12px',
-            borderRadius: 8,
-            border: '1px solid #cbd5e1',
-            backgroundColor: activeTab === 'coupon' ? '#0f172a' : '#ffffff',
-            color: activeTab === 'coupon' ? '#ffffff' : '#0f172a',
-            fontWeight: 700,
-            cursor: 'pointer',
+            backgroundColor: '#ffffff',
+            border: '1px solid #e2e8f0',
+            borderRadius: 12,
+            padding: 18,
+            fontSize: 14,
+            color: '#475569',
           }}
         >
-          2. ライブ後クーポン
-        </button>
-      </div>
-
-      {activeTab === 'ticket' ? (
-        <section style={{ backgroundColor: '#ffffff', border: '1px solid #e2e8f0', borderRadius: 12, padding: 18 }}>
-          <h2 style={{ fontSize: 17, margin: '0 0 8px' }}>イベント入場チケット</h2>
-          <p style={{ fontSize: 13, color: '#475569', margin: '0 0 14px' }}>
-            チケット発券後、入場時に「チケットを使用する」を押すと利用済みになり、ライブ後クーポンが解放されます。
-          </p>
-
-          <div style={{ fontSize: 13, marginBottom: 14, padding: 12, backgroundColor: '#f1f5f9', borderRadius: 8 }}>
-            <div>発券状態：{ticketIssued ? '発券済み' : '未発券'}</div>
-            <div>利用状態：{ticketUsed ? '使用済み' : ticketIssued ? '未使用（入場可能）' : '—'}</div>
-          </div>
-
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            <button
-              type="button"
-              onClick={handleIssueTicket}
-              disabled={ticketIssued}
-              style={{
-                padding: '12px 14px',
-                borderRadius: 8,
-                border: 'none',
-                backgroundColor: ticketIssued ? '#94a3b8' : '#0284c7',
-                color: '#ffffff',
-                fontWeight: 700,
-                cursor: ticketIssued ? 'not-allowed' : 'pointer',
-              }}
-            >
-              {ticketIssued ? 'チケット発券完了' : 'チケットを購入・発券する（テスト）'}
-            </button>
-
-            <button
-              type="button"
-              onClick={handleUseTicket}
-              disabled={!ticketIssued || ticketUsed}
-              style={{
-                padding: '12px 14px',
-                borderRadius: 8,
-                border: 'none',
-                backgroundColor: !ticketIssued || ticketUsed ? '#94a3b8' : '#16a34a',
-                color: '#ffffff',
-                fontWeight: 700,
-                cursor: !ticketIssued || ticketUsed ? 'not-allowed' : 'pointer',
-              }}
-            >
-              {ticketUsed ? 'チケット使用済み' : 'チケットを使用する（入場消込）'}
-            </button>
-          </div>
-        </section>
+          現在表示できるスポンサー店舗クーポンはありません。
+        </div>
       ) : (
-        <section style={{ backgroundColor: '#ffffff', border: '1px solid #e2e8f0', borderRadius: 12, padding: 18 }}>
-          <h2 style={{ fontSize: 17, margin: '0 0 8px' }}>スポンサー店舗クーポン</h2>
-          {!couponUnlocked ? (
-            <p style={{ fontSize: 13, color: '#64748b', margin: 0 }}>
-              チケット使用・ライブ終了後にクーポンが利用可能になります。
-            </p>
-          ) : (
-            <>
-              <p style={{ fontSize: 13, color: '#475569', margin: '0 0 14px' }}>
-                対象店舗でスタッフ提示のうえ「クーポンを使用する」を押してください。
-              </p>
-              <div style={{ fontSize: 13, marginBottom: 14, padding: 12, backgroundColor: '#fefce8', borderRadius: 8, border: '1px solid #fde047' }}>
-                <div>特典内容：登別・幌別 提携スポンサー店舗 優待クーポン</div>
-                <div>利用状態：{couponUsed ? '使用済み' : '利用可能'}</div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          {coupons.map((coupon) => (
+            <section
+              key={coupon.id}
+              style={{
+                backgroundColor: '#ffffff',
+                border: coupon.is_used ? '1px solid #cbd5e1' : '1px solid #bae6fd',
+                borderRadius: 12,
+                padding: 18,
+                opacity: coupon.is_used ? 0.72 : 1,
+              }}
+            >
+              <div
+                style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  gap: 8,
+                  marginBottom: 6,
+                }}
+              >
+                <span style={{ fontSize: 12, fontWeight: 700, color: '#0369a1' }}>
+                  {coupon.shop_name}
+                </span>
+                <span
+                  style={{
+                    fontSize: 11,
+                    fontWeight: 700,
+                    padding: '3px 8px',
+                    borderRadius: 999,
+                    backgroundColor: coupon.is_used ? '#e2e8f0' : '#dcfce7',
+                    color: coupon.is_used ? '#475569' : '#15803d',
+                  }}
+                >
+                  {coupon.is_used ? '使用済み' : '利用可能'}
+                </span>
               </div>
+
+              <h2 style={{ fontSize: 17, margin: '0 0 6px' }}>{coupon.benefit_title}</h2>
+              <p style={{ fontSize: 13, color: '#475569', margin: '0 0 14px' }}>
+                {coupon.benefit_detail}
+              </p>
+
               <button
                 type="button"
-                onClick={handleUseCoupon}
-                disabled={couponUsed}
+                disabled={coupon.is_used || usingId === coupon.id}
+                onClick={() => handleUseCoupon(coupon)}
                 style={{
+                  width: '100%',
                   padding: '12px 14px',
                   borderRadius: 8,
                   border: 'none',
-                  backgroundColor: couponUsed ? '#94a3b8' : '#d97706',
+                  backgroundColor: coupon.is_used ? '#94a3b8' : '#0284c7',
                   color: '#ffffff',
                   fontWeight: 700,
-                  width: '100%',
-                  cursor: couponUsed ? 'not-allowed' : 'pointer',
+                  cursor: coupon.is_used || usingId === coupon.id ? 'not-allowed' : 'pointer',
                 }}
               >
-                {couponUsed ? 'クーポン使用済み' : 'クーポンを使用する'}
+                {coupon.is_used
+                  ? 'このクーポンは使用済みです'
+                  : usingId === coupon.id
+                    ? '処理中...'
+                    : 'クーポンを使用する'}
               </button>
-            </>
-          )}
-        </section>
+            </section>
+          ))}
+        </div>
       )}
     </main>
   );
