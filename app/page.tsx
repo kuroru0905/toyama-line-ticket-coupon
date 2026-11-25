@@ -58,6 +58,9 @@ const COLORS = {
   okBg: '#dcfce7',
 };
 
+// 特商法・プライバシーポリシーはスポンサーサイトに一本化
+const LEGAL_SITE = process.env.NEXT_PUBLIC_SPONSOR_SITE_URL || 'https://toyama-sponsor-hub.vercel.app';
+
 function formatDateTime(iso: string | null): string {
   if (!iso) return '';
   return new Date(iso).toLocaleString('ja-JP', {
@@ -469,6 +472,14 @@ export default function HomePage() {
               ? 'スポンサー限定（先行販売中）'
               : `購入する ¥${ev.price_jpy.toLocaleString('ja-JP')}`}
         </button>
+        {!presaleLocked && (
+          <p style={{ fontSize: 11, color: COLORS.muted, margin: '8px 0 0', lineHeight: 1.6 }}>
+            お客様都合のキャンセル・返金はできません（公演中止の場合は全額返金）。
+            <a href={`${LEGAL_SITE}/tokushoho#ticket`} target="_blank" rel="noopener noreferrer" style={{ color: COLORS.primary }}>
+              特定商取引法に基づく表記
+            </a>
+          </p>
+        )}
       </>
     );
   };
@@ -672,6 +683,17 @@ export default function HomePage() {
           {tab === 'tickets' ? renderTickets() : renderCoupons()}
         </div>
       )}
+
+      <footer style={{ marginTop: 28, textAlign: 'center', fontSize: 11, color: COLORS.muted, lineHeight: 1.8 }}>
+        <a href={`${LEGAL_SITE}/tokushoho#ticket`} target="_blank" rel="noopener noreferrer" style={{ color: COLORS.muted }}>
+          特定商取引法に基づく表記
+        </a>
+        {' ／ '}
+        <a href={`${LEGAL_SITE}/privacy`} target="_blank" rel="noopener noreferrer" style={{ color: COLORS.muted }}>
+          プライバシーポリシー
+        </a>
+        <div>© 外山企画</div>
+      </footer>
     </main>
   );
 }
