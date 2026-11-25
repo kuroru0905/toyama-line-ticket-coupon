@@ -15,6 +15,7 @@ export async function GET(req: Request) {
       .from('sponsor_coupons')
       .select('id, shop_name, benefit_title, benefit_detail, created_at')
       .eq('is_published', true)
+      .eq('review_status', 'approved')
       .order('created_at', { ascending: true });
 
     if (error) {

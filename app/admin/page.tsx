@@ -18,13 +18,24 @@ type AdminEvent = {
   stats: EventStats;
 };
 
+type ReviewStatus = 'pending' | 'approved' | 'rejected';
+
 type AdminCoupon = {
   id: string;
   shop_name: string;
   benefit_title: string;
   benefit_detail: string;
   is_published: boolean;
+  review_status: ReviewStatus;
+  review_note: string | null;
+  sponsor_name: string | null; // null = 外山企画が直接作成
   use_count: number;
+};
+
+const REVIEW_LABEL: Record<ReviewStatus, { text: string; bg: string; color: string }> = {
+  pending: { text: '審査待ち', bg: '#fef3c7', color: '#b45309' },
+  approved: { text: '承認済み', bg: '#dcfce7', color: '#15803d' },
+  rejected: { text: '差し戻し', bg: '#fee2e2', color: '#b91c1c' },
 };
 
 type Order = {
@@ -361,6 +372,36 @@ export default function AdminPage() {
     }
   };
 
+  const reviewCoupon = async (c: AdminCoupon, status: 'approved' | 'rejected') => {
+    let note: string | null = null;
+    if (status === 'approved') {
+      if (!window.confirm(`【${c.shop_name}】「${c.benefit_title}」を承認して、LINEに掲載しますか？`)) return;
+    } else {
+      note = window.prompt('差し戻しの理由を入力してください（店舗のマイページに表示されます）', '');
+      if (note === null) return;
+      if (!note.trim()) {
+        setErrorMsg('差し戻し理由を入力してください');
+        return;
+      }
+    }
+    try {
+      const res = await api(`/api/admin/coupons/${c.id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ review_status: status, review_note: note }),
+      });
+      const base = status === 'approved' ? '承認しました。LINEに掲載されます。' : '差し戻しました。';
+      const mailNote = !c.sponsor_name
+        ? ''
+        : res.mailed
+          ? '店舗に結果をメールしました。'
+          : '※ 店舗へのメールは送れませんでした（メール設定を確認してください）。';
+      flash(base + mailNote);
+      await loadCoupons();
+    } catch (e) {
+      setErrorMsg(e instanceof Error ? e.message : '更新に失敗しました');
+    }
+  };
+
   const toggleCouponPublish = async (c: AdminCoupon) => {
     const next = !c.is_published;
     const ok = window.confirm(
@@ -642,6 +683,11 @@ export default function AdminPage() {
   );
 
   // ---------- 表示：クーポン一覧 ----------
+  // 審査待ちを先頭に並べる
+  const reviewOrder: Record<ReviewStatus, number> = { pending: 0, rejected: 1, approved: 2 };
+  const sortedCoupons = [...coupons].sort((a, b) => reviewOrder[a.review_status] - reviewOrder[b.review_status]);
+  const pendingCount = coupons.filter((c) => c.review_status === 'pending').length;
+
   const renderCoupons = () => (
     <>
       {couponForm ? (
@@ -654,18 +700,77 @@ export default function AdminPage() {
 
       {coupons.length === 0 && <div style={{ ...card, color: C.sub, fontSize: 14 }}>クーポンはまだありません。</div>}
 
+      {pendingCount > 0 && (
+        <div
+          style={{
+            marginBottom: 14,
+            padding: 12,
+            borderRadius: 8,
+            backgroundColor: '#fffbeb',
+            border: '1px solid #fde68a',
+            color: '#b45309',
+            fontSize: 13,
+            fontWeight: 700,
+          }}
+        >
+          店舗から申請された審査待ちのクーポンが {pendingCount} 件あります。
+        </div>
+      )}
+
       <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-        {coupons.map((c) => (
-          <section key={c.id} style={{ ...card, opacity: c.is_published ? 1 : 0.8 }}>
+        {sortedCoupons.map((c) => (
+          <section
+            key={c.id}
+            style={{
+              ...card,
+              opacity: c.is_published ? 1 : 0.8,
+              borderColor: c.review_status === 'pending' ? '#fde68a' : C.border,
+            }}
+          >
             <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, marginBottom: 6 }}>
               <span style={{ fontSize: 12, fontWeight: 700, color: C.primaryDark }}>{c.shop_name}</span>
-              {pill(c.is_published, '公開中', '非公開')}
+              <span style={{ display: 'flex', gap: 6 }}>
+                <span
+                  style={{
+                    fontSize: 11,
+                    fontWeight: 700,
+                    padding: '3px 8px',
+                    borderRadius: 999,
+                    backgroundColor: REVIEW_LABEL[c.review_status].bg,
+                    color: REVIEW_LABEL[c.review_status].color,
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  {REVIEW_LABEL[c.review_status].text}
+                </span>
+                {pill(c.is_published, '公開中', '非公開')}
+              </span>
             </div>
             <h3 style={{ fontSize: 17, margin: '0 0 4px', color: C.text }}>{c.benefit_title}</h3>
-            <p style={{ fontSize: 13, color: C.sub, margin: '0 0 10px' }}>{c.benefit_detail}</p>
+            <p style={{ fontSize: 13, color: C.sub, margin: '0 0 8px', whiteSpace: 'pre-wrap' }}>{c.benefit_detail}</p>
+            <p style={{ fontSize: 12, color: C.muted, margin: '0 0 8px' }}>
+              登録：{c.sponsor_name ? `スポンサー（${c.sponsor_name}）` : '外山企画'}
+            </p>
+            {c.review_status === 'rejected' && c.review_note && (
+              <p style={{ fontSize: 12, color: C.danger, margin: '0 0 8px' }}>差し戻し理由：{c.review_note}</p>
+            )}
             <p style={{ fontSize: 14, fontWeight: 700, color: C.text, margin: '0 0 12px' }}>
               利用回数：{c.use_count}回
             </p>
+
+            {c.review_status !== 'approved' && (
+              <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
+                <button type="button" style={{ ...btn('primary'), flex: 1 }} onClick={() => reviewCoupon(c, 'approved')}>
+                  承認して掲載
+                </button>
+                {c.review_status === 'pending' && (
+                  <button type="button" style={btn('danger')} onClick={() => reviewCoupon(c, 'rejected')}>
+                    差し戻す
+                  </button>
+                )}
+              </div>
+            )}
+
             <div style={{ display: 'flex', gap: 8 }}>
               <button
                 type="button"
@@ -706,7 +811,7 @@ export default function AdminPage() {
         {(
           [
             ['events', '🎫 イベント'],
-            ['coupons', '🎁 クーポン'],
+            ['coupons', pendingCount > 0 ? `🎁 クーポン（審査待ち ${pendingCount}）` : '🎁 クーポン'],
           ] as [Tab, string][]
         ).map(([key, text]) => (
           <button
