@@ -54,10 +54,6 @@
 | `STRIPE_SECRET_KEY` | Stripe テストモードのシークレットキー `sk_test_...`（秘密） |
 | `STRIPE_WEBHOOK_SECRET` | Stripe Webhook の署名シークレット `whsec_...`（秘密・任意） |
 | `NEXT_PUBLIC_APP_URL` | 任意。決済後の戻り先。未設定ならリクエストのドメイン |
-| `ADMIN_LINE_USER_IDS` | 管理画面に入れるLINEユーザーID（カンマ区切り） |
-| `GMAIL_USER` | 審査結果メールの送信元Gmailアドレス |
-| `GMAIL_APP_PASSWORD` | そのGmailの「アプリパスワード」（秘密）。未設定ならメールは送らない |
-| `SPONSOR_MYPAGE_URL` | 任意。結果メールに載せるスポンサーマイページのURL |
 
 変更後は Redeploy が必要。
 
@@ -78,29 +74,16 @@
    - 「クーポン」ボタン → リンク `https://liff.line.me/<LIFF ID>?tab=coupons`
 3. 友だちへの告知は Official Account Manager のメッセージ配信で同じ LIFF URL を送る。
 
-## 管理画面（/admin）
+## 管理画面
 
-`https://<本番ドメイン>/admin` を開き、LINEでログインする。
+管理画面はスポンサーハブ（`toyama-sponsor-hub`）の統合管理画面に移った。このアプリの `/admin` を開くと自動で移動する。
 
-- 環境変数 `ADMIN_LINE_USER_IDS`（カンマ区切りのLINEユーザーID）に含まれるアカウントだけが入れる。
-- 登録されていないアカウントでログインすると、そのアカウントのユーザーIDが表示されるので、それを `ADMIN_LINE_USER_IDS` に追加して Redeploy する。
-- 🎫 イベント：作成・編集・公開/非公開、販売枚数・入場者数・売上、購入者一覧
-- 🎁 クーポン：作成・編集・公開/非公開、利用回数
-- 削除はできない。販売・掲載をやめるときは「非公開」にする（購入・利用履歴を守るため）。
+- `https://toyama-sponsor-hub.vercel.app/admin/events` … イベント・チケット（作成・編集・公開、販売・入場・売上・店舗送客・出演応募の集計、購入者一覧、出演者募集の設定）
+- `https://toyama-sponsor-hub.vercel.app/admin/coupons` … クーポン（作成・編集、店舗申請の承認／差し戻しと結果メール）
+- ログインはメール（スポンサーハブの `ADMIN_EMAILS`）
 
-### 店舗からのクーポン申請（スポンサーハブ連携）
+### 店舗からのクーポン申請
 
-- 店舗ローカル枠・企業プレミアム枠で契約中のスポンサーは、`toyama-sponsor-hub` のマイページからクーポンを申請・編集できる。
-- 申請されたクーポンは `review_status = 'pending'`（審査待ち）。管理画面で「承認して掲載」すると LINE のクーポン画面に出る。「差し戻す」と理由が店舗のマイページに表示される。
-- 店舗が内容を編集すると再び審査待ちに戻る。掲載停止/再開は審査不要。
+- 店舗ローカル枠・企業プレミアム枠で契約中のスポンサーは、スポンサーハブのマイページからクーポンを申請・編集できる。
+- 申請されたクーポンは `review_status = 'pending'`。統合管理画面で承認すると LINE のクーポン画面に出る。
 - ユーザー画面に出る条件：`is_published = true` かつ `review_status = 'approved'`。
-- メール通知（Gmail）：申請・再申請時はスポンサーハブから `ADMIN_EMAILS` へ、承認・差し戻し時はこのアプリからスポンサーの登録メールアドレスへ送る。送信に失敗しても申請・審査の処理は完了する。
-
-| メソッド | パス | 内容 |
-| --- | --- | --- |
-| GET | `/api/admin/me` | 管理者かどうか |
-| GET / POST | `/api/admin/events` | イベント一覧（集計つき）／作成 |
-| PATCH | `/api/admin/events/[id]` | イベント編集 |
-| GET | `/api/admin/events/[id]/orders` | 購入者一覧 |
-| GET / POST | `/api/admin/coupons` | クーポン一覧（利用回数つき）／作成 |
-| PATCH | `/api/admin/coupons/[id]` | クーポン編集 |
