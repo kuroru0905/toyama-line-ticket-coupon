@@ -42,6 +42,7 @@
 | `STRIPE_SECRET_KEY` | Stripe テストモードのシークレットキー `sk_test_...`（秘密） |
 | `STRIPE_WEBHOOK_SECRET` | Stripe Webhook の署名シークレット `whsec_...`（秘密・任意） |
 | `NEXT_PUBLIC_APP_URL` | 任意。決済後の戻り先。未設定ならリクエストのドメイン |
+| `ADMIN_LINE_USER_IDS` | 管理画面に入れるLINEユーザーID（カンマ区切り） |
 
 変更後は Redeploy が必要。
 
@@ -62,6 +63,21 @@
    - 「クーポン」ボタン → リンク `https://liff.line.me/<LIFF ID>?tab=coupons`
 3. 友だちへの告知は Official Account Manager のメッセージ配信で同じ LIFF URL を送る。
 
-## 公演・クーポンの登録
+## 管理画面（/admin）
 
-Supabase の Table Editor で `live_events` / `sponsor_coupons` に行を追加する（`is_published = true` で表示）。
+`https://<本番ドメイン>/admin` を開き、LINEでログインする。
+
+- 環境変数 `ADMIN_LINE_USER_IDS`（カンマ区切りのLINEユーザーID）に含まれるアカウントだけが入れる。
+- 登録されていないアカウントでログインすると、そのアカウントのユーザーIDが表示されるので、それを `ADMIN_LINE_USER_IDS` に追加して Redeploy する。
+- 🎫 イベント：作成・編集・公開/非公開、販売枚数・入場者数・売上、購入者一覧
+- 🎁 クーポン：作成・編集・公開/非公開、利用回数
+- 削除はできない。販売・掲載をやめるときは「非公開」にする（購入・利用履歴を守るため）。
+
+| メソッド | パス | 内容 |
+| --- | --- | --- |
+| GET | `/api/admin/me` | 管理者かどうか |
+| GET / POST | `/api/admin/events` | イベント一覧（集計つき）／作成 |
+| PATCH | `/api/admin/events/[id]` | イベント編集 |
+| GET | `/api/admin/events/[id]/orders` | 購入者一覧 |
+| GET / POST | `/api/admin/coupons` | クーポン一覧（利用回数つき）／作成 |
+| PATCH | `/api/admin/coupons/[id]` | クーポン編集 |
