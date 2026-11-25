@@ -2,10 +2,12 @@ import { NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '../../../lib/supabaseAdmin';
 import { getLineUserFromRequest } from '../../../lib/lineAuth';
 import { errorResponse } from '../../../lib/apiError';
+import { getSaleState, getEntryWindow, nextSaleOpensAt } from '../../../lib/eventWindows';
+import { isActiveSponsorLineUser } from '../../../lib/sponsorLink';
 
 export const dynamic = 'force-dynamic';
 
-// 公開中の公演一覧 ＋（ログイン済みなら）自分のチケット
+// 公開中の公演一覧（販売状態・入場受付時間つき）＋（ログイン済みなら）自分のチケット
 export async function GET(req: Request) {
   try {
     const supabase = getSupabaseAdmin();
@@ -13,7 +15,7 @@ export async function GET(req: Request) {
 
     const { data: events, error } = await supabase
       .from('live_events')
-      .select('id, title, venue, starts_at, price_jpy, capacity, description')
+      .select('id, title, venue, starts_at, price_jpy, capacity, description, presale_start, general_sale_start')
       .eq('is_published', true)
       .order('starts_at', { ascending: true });
 
@@ -22,7 +24,9 @@ export async function GET(req: Request) {
     }
 
     let myTickets: unknown[] = [];
+    let isSponsor = false;
     if (user) {
+      isSponsor = await isActiveSponsorLineUser(supabase, user.userId);
       const { data: orders, error: ordersError } = await supabase
         .from('ticket_orders')
         .select('id, event_id, status, amount_jpy, paid_at, used_at')
@@ -35,7 +39,19 @@ export async function GET(req: Request) {
       myTickets = orders ?? [];
     }
 
-    return NextResponse.json({ events: events ?? [], tickets: myTickets });
+    const now = new Date();
+    const withState = (events ?? []).map((e) => {
+      const entry = getEntryWindow(e.starts_at);
+      return {
+        ...e,
+        sale_state: getSaleState(e, now),
+        sale_opens_at: nextSaleOpensAt(e),
+        entry_opens_at: entry.opensAt,
+        entry_closes_at: entry.closesAt,
+      };
+    });
+
+    return NextResponse.json({ events: withState, tickets: myTickets, isSponsor });
   } catch (err) {
     return errorResponse(err);
   }

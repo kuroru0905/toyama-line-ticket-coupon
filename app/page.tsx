@@ -20,6 +20,12 @@ type LiveEvent = {
   price_jpy: number;
   capacity: number | null;
   description: string;
+  presale_start: string | null;
+  general_sale_start: string | null;
+  sale_state: 'before' | 'presale' | 'general' | 'ended';
+  sale_opens_at: string | null;
+  entry_opens_at: string;
+  entry_closes_at: string;
 };
 
 type Ticket = {
@@ -76,6 +82,7 @@ export default function HomePage() {
   const [entitlement, setEntitlement] = useState<CouponEntitlement | null>(null);
   const [events, setEvents] = useState<LiveEvent[]>([]);
   const [tickets, setTickets] = useState<Ticket[]>([]);
+  const [isSponsor, setIsSponsor] = useState(false);
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -141,6 +148,7 @@ export default function HomePage() {
       setEntitlement(cJson.entitlement ?? null);
       setEvents(tJson.events ?? []);
       setTickets(tJson.tickets ?? []);
+      setIsSponsor(Boolean(tJson.isSponsor));
     } catch (e) {
       setErrorMsg(e instanceof Error ? e.message : '通信エラーが発生しました');
     } finally {
@@ -384,11 +392,114 @@ export default function HomePage() {
     </button>
   );
 
+  const notice = (text: string) => (
+    <div
+      style={{
+        textAlign: 'center',
+        padding: 12,
+        borderRadius: 8,
+        backgroundColor: '#f1f5f9',
+        color: COLORS.sub,
+        fontWeight: 700,
+        fontSize: 14,
+        lineHeight: 1.5,
+        whiteSpace: 'pre-line',
+      }}
+    >
+      {text}
+    </div>
+  );
+
+  const saleBadge = (ev: LiveEvent) => {
+    const map: Record<LiveEvent['sale_state'], { label: string; bg: string; color: string }> = {
+      before: { label: '販売前', bg: COLORS.border, color: COLORS.sub },
+      presale: { label: 'スポンサー先行', bg: '#fef3c7', color: '#b45309' },
+      general: { label: '販売中', bg: COLORS.okBg, color: COLORS.ok },
+      ended: { label: '販売終了', bg: COLORS.border, color: COLORS.sub },
+    };
+    const b = map[ev.sale_state];
+    return (
+      <span
+        style={{
+          fontSize: 11,
+          fontWeight: 700,
+          padding: '3px 8px',
+          borderRadius: 999,
+          backgroundColor: b.bg,
+          color: b.color,
+          whiteSpace: 'nowrap',
+        }}
+      >
+        {b.label}
+      </span>
+    );
+  };
+
+  const renderBuyArea = (ev: LiveEvent) => {
+    if (ev.sale_state === 'ended') return notice('開演時刻を過ぎたため、販売を終了しました');
+    if (ev.sale_state === 'before') {
+      return notice(
+        ev.presale_start
+          ? `スポンサー先行販売：${formatDateTime(ev.presale_start)}〜` +
+              (ev.general_sale_start ? `\n一般販売：${formatDateTime(ev.general_sale_start)}〜` : '')
+          : ev.sale_opens_at
+            ? `販売開始：${formatDateTime(ev.sale_opens_at)}〜`
+            : 'まもなく販売開始'
+      );
+    }
+    const presaleLocked = ev.sale_state === 'presale' && !isSponsor;
+    return (
+      <>
+        {ev.sale_state === 'presale' && (
+          <p style={{ fontSize: 12, color: '#b45309', margin: '0 0 8px', lineHeight: 1.6 }}>
+            ただいまスポンサー先行販売中です
+            {ev.general_sale_start ? `（一般販売は${formatDateTime(ev.general_sale_start)}から）` : ''}。
+            {presaleLocked && 'スポンサーの方はマイページの「LINEと連携する」から連携してください。'}
+          </p>
+        )}
+        <button
+          type="button"
+          disabled={busyId === ev.id || presaleLocked}
+          onClick={() => handleBuy(ev)}
+          style={button(busyId === ev.id || presaleLocked, presaleLocked)}
+        >
+          {busyId === ev.id
+            ? '決済ページへ移動中...'
+            : presaleLocked
+              ? 'スポンサー限定（先行販売中）'
+              : `購入する ¥${ev.price_jpy.toLocaleString('ja-JP')}`}
+        </button>
+      </>
+    );
+  };
+
+  const renderEntryArea = (ev: LiveEvent, ticket: Ticket) => {
+    const now = Date.now();
+    if (now < new Date(ev.entry_opens_at).getTime()) {
+      return notice(`入場受付は ${formatDateTime(ev.entry_opens_at)} から（開演3時間前〜当日23:59）`);
+    }
+    if (now > new Date(ev.entry_closes_at).getTime()) {
+      return notice('入場受付は終了しました');
+    }
+    return (
+      <button
+        type="button"
+        disabled={busyId === ticket.id}
+        onClick={() => handleUseTicket(ticket, ev)}
+        style={button(busyId === ticket.id)}
+      >
+        {busyId === ticket.id ? '処理中...' : '入場する（スタッフの前で押す）'}
+      </button>
+    );
+  };
+
   const renderTickets = () => {
-    if (events.length === 0) {
+    // チケットを持っていない終了済みの公演は出さない
+    const list = events.filter((ev) => ev.sale_state !== 'ended' || tickets.some((t) => t.event_id === ev.id));
+    if (list.length === 0) {
       return <div style={{ ...card, fontSize: 14, color: COLORS.sub }}>現在販売中の公演はありません。</div>;
     }
-    return events.map((ev) => {
+    return list.map((ev) => {
       const ticket = tickets.find((t) => t.event_id === ev.id);
       const used = ticket?.status === 'used';
       return (
@@ -397,50 +508,19 @@ export default function HomePage() {
             <span style={{ fontSize: 12, fontWeight: 700, color: COLORS.primaryDark }}>
               {formatDateTime(ev.starts_at)} 開演
             </span>
-            {ticket && badge(used, '入場済み', '購入済み')}
+            {ticket ? badge(used, '入場済み', '購入済み') : saleBadge(ev)}
           </div>
           <h2 style={{ fontSize: 18, margin: '0 0 4px', color: COLORS.text }}>{ev.title}</h2>
           <p style={{ fontSize: 13, color: COLORS.sub, margin: '0 0 6px' }}>📍 {ev.venue}</p>
           {ev.description && (
-            <p style={{ fontSize: 13, color: COLORS.sub, margin: '0 0 14px' }}>{ev.description}</p>
+            <p style={{ fontSize: 13, color: COLORS.sub, margin: '0 0 14px', whiteSpace: 'pre-wrap' }}>
+              {ev.description}
+            </p>
           )}
 
-          {!ticket && (
-            <button
-              type="button"
-              disabled={busyId === ev.id}
-              onClick={() => handleBuy(ev)}
-              style={button(busyId === ev.id)}
-            >
-              {busyId === ev.id ? '決済ページへ移動中...' : `購入する ¥${ev.price_jpy.toLocaleString('ja-JP')}`}
-            </button>
-          )}
-
-          {ticket && !used && (
-            <button
-              type="button"
-              disabled={busyId === ticket.id}
-              onClick={() => handleUseTicket(ticket, ev)}
-              style={button(busyId === ticket.id)}
-            >
-              {busyId === ticket.id ? '処理中...' : '入場する（スタッフの前で押す）'}
-            </button>
-          )}
-
-          {ticket && used && (
-            <div
-              style={{
-                textAlign: 'center',
-                padding: 12,
-                borderRadius: 8,
-                backgroundColor: '#f1f5f9',
-                color: COLORS.sub,
-                fontWeight: 700,
-              }}
-            >
-              入場済み（{formatDateTime(ticket.used_at)}）
-            </div>
-          )}
+          {!ticket && renderBuyArea(ev)}
+          {ticket && !used && renderEntryArea(ev, ticket)}
+          {ticket && used && notice(`入場済み（${formatDateTime(ticket.used_at)}）`)}
         </section>
       );
     });

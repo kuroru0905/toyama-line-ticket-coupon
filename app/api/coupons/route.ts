@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '../../../lib/supabaseAdmin';
 import { getLineUserFromRequest } from '../../../lib/lineAuth';
 import { errorResponse } from '../../../lib/apiError';
+import { activeSponsorIds } from '../../../lib/sponsorLink';
 import { getCouponEntitlement, entitlementMessage, type Entitlement } from '../../../lib/couponEntitlement';
 
 export const dynamic = 'force-dynamic';
@@ -15,7 +16,7 @@ export async function GET(req: Request) {
 
     const { data, error } = await supabase
       .from('sponsor_coupons')
-      .select('id, shop_name, benefit_title, benefit_detail, created_at')
+      .select('id, sponsor_id, shop_name, benefit_title, benefit_detail, created_at')
       .eq('is_published', true)
       .eq('review_status', 'approved')
       .order('created_at', { ascending: true });
@@ -24,12 +25,16 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
+    // 解約・未払いになったスポンサーのクーポンは出さない（外山企画の直接登録分＝sponsor_idなしは表示）
+    const activeIds = await activeSponsorIds(supabase);
+    const visible = (data ?? []).filter((c) => !c.sponsor_id || activeIds.has(c.sponsor_id));
+
     let entitlement: Entitlement | null = null;
     if (user) {
       entitlement = await getCouponEntitlement(supabase, user.userId);
     }
 
-    const coupons = (data ?? []).map((c) => {
+    const coupons = visible.map((c) => {
       // 「使用済み」は今回の入場の権利で使ったクーポンだけ
       const usedNow = entitlement?.state === 'used' && entitlement.usedCouponId === c.id;
       return {

@@ -3,6 +3,8 @@ import { getSupabaseAdmin } from '../../../../lib/supabaseAdmin';
 import { requireLineUser } from '../../../../lib/lineAuth';
 import { createCheckoutSession } from '../../../../lib/stripe';
 import { errorResponse } from '../../../../lib/apiError';
+import { getSaleState, formatJst } from '../../../../lib/eventWindows';
+import { isActiveSponsorLineUser } from '../../../../lib/sponsorLink';
 
 export const dynamic = 'force-dynamic';
 
@@ -19,7 +21,7 @@ export async function POST(req: Request) {
 
     const { data: event, error: eventError } = await supabase
       .from('live_events')
-      .select('id, title, price_jpy, capacity')
+      .select('id, title, price_jpy, capacity, starts_at, presale_start, general_sale_start')
       .eq('id', body.eventId)
       .eq('is_published', true)
       .maybeSingle();
@@ -28,6 +30,31 @@ export async function POST(req: Request) {
     }
     if (!event) {
       return NextResponse.json({ error: 'この公演は販売していません' }, { status: 404 });
+    }
+
+    // 販売期間のチェック（開演後は販売終了／先行販売はスポンサーのみ）
+    const saleState = getSaleState(event);
+    if (saleState === 'ended') {
+      return NextResponse.json({ error: '開演時刻を過ぎたため、販売を終了しました' }, { status: 409 });
+    }
+    if (saleState === 'before') {
+      const opens = event.presale_start || event.general_sale_start;
+      return NextResponse.json(
+        { error: opens ? `販売開始は ${formatJst(opens)} からです` : 'まだ販売を開始していません' },
+        { status: 409 }
+      );
+    }
+    if (saleState === 'presale') {
+      const sponsor = await isActiveSponsorLineUser(supabase, user.userId);
+      if (!sponsor) {
+        const general = event.general_sale_start ? `一般販売は ${formatJst(event.general_sale_start)} からです。` : '';
+        return NextResponse.json(
+          {
+            error: `現在はスポンサー先行販売中です。${general}スポンサーの方は、マイページから「LINEと連携する」を行ってください`,
+          },
+          { status: 403 }
+        );
+      }
     }
 
     // すでに購入済みか
