@@ -2,10 +2,12 @@ import { NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '../../../lib/supabaseAdmin';
 import { getLineUserFromRequest } from '../../../lib/lineAuth';
 import { errorResponse } from '../../../lib/apiError';
+import { getCouponEntitlement, entitlementMessage, type Entitlement } from '../../../lib/couponEntitlement';
 
 export const dynamic = 'force-dynamic';
 
-// 公開中のクーポン一覧。LINEログイン済みなら「自分が使ったかどうか」も返す（1人1回）
+// 公開中のクーポン一覧＋（ログイン済みなら）今使えるかどうか
+// 利用ルールは lib/couponEntitlement.ts を参照
 export async function GET(req: Request) {
   try {
     const supabase = getSupabaseAdmin();
@@ -22,32 +24,35 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    const usedMap = new Map<string, string>();
-    if (user && data && data.length > 0) {
-      const { data: uses, error: usesError } = await supabase
-        .from('coupon_uses')
-        .select('coupon_id, used_at')
-        .eq('line_user_id', user.userId)
-        .in(
-          'coupon_id',
-          data.map((c) => c.id)
-        );
-      if (usesError) {
-        return NextResponse.json({ error: usesError.message }, { status: 500 });
-      }
-      for (const u of uses ?? []) usedMap.set(u.coupon_id, u.used_at);
+    let entitlement: Entitlement | null = null;
+    if (user) {
+      entitlement = await getCouponEntitlement(supabase, user.userId);
     }
 
-    const coupons = (data ?? []).map((c) => ({
-      id: c.id,
-      shop_name: c.shop_name,
-      benefit_title: c.benefit_title,
-      benefit_detail: c.benefit_detail,
-      is_used: usedMap.has(c.id),
-      used_at: usedMap.get(c.id) ?? null,
-    }));
+    const coupons = (data ?? []).map((c) => {
+      // 「使用済み」は今回の入場の権利で使ったクーポンだけ
+      const usedNow = entitlement?.state === 'used' && entitlement.usedCouponId === c.id;
+      return {
+        id: c.id,
+        shop_name: c.shop_name,
+        benefit_title: c.benefit_title,
+        benefit_detail: c.benefit_detail,
+        is_used: usedNow,
+        used_at: usedNow ? entitlement?.usedAt ?? null : null,
+      };
+    });
 
-    return NextResponse.json({ coupons });
+    return NextResponse.json({
+      coupons,
+      entitlement: entitlement
+        ? {
+            state: entitlement.state,
+            eventTitle: entitlement.eventTitle,
+            deadline: entitlement.deadline,
+            message: entitlementMessage(entitlement),
+          }
+        : { state: 'none', eventTitle: null, deadline: null, message: 'LINEでログインすると、クーポンの利用状況が表示されます' },
+    });
   } catch (err) {
     return errorResponse(err);
   }

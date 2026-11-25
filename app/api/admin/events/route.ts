@@ -23,9 +23,23 @@ export async function GET(req: Request) {
       .in('status', ['paid', 'used']);
     if (ordersError) return NextResponse.json({ error: ordersError.message }, { status: 500 });
 
-    const stats = new Map<string, { sold: number; entered: number; revenue: number }>();
+    // 入場特典クーポンの利用（イベント別の送客数）
+    const { data: uses, error: usesError } = await supabase
+      .from('coupon_uses')
+      .select('ticket_order_id, ticket_orders(event_id)')
+      .not('ticket_order_id', 'is', null);
+    if (usesError) return NextResponse.json({ error: usesError.message }, { status: 500 });
+
+    const sentByEvent = new Map<string, number>();
+    for (const u of uses ?? []) {
+      const t = Array.isArray(u.ticket_orders) ? u.ticket_orders[0] : u.ticket_orders;
+      const eventId = (t as { event_id?: string } | null)?.event_id;
+      if (eventId) sentByEvent.set(eventId, (sentByEvent.get(eventId) ?? 0) + 1);
+    }
+
+    const stats = new Map<string, { sold: number; entered: number; revenue: number; sent: number }>();
     for (const o of orders ?? []) {
-      const s = stats.get(o.event_id) ?? { sold: 0, entered: 0, revenue: 0 };
+      const s = stats.get(o.event_id) ?? { sold: 0, entered: 0, revenue: 0, sent: 0 };
       s.sold += 1;
       if (o.status === 'used') s.entered += 1;
       s.revenue += o.amount_jpy;
@@ -35,7 +49,7 @@ export async function GET(req: Request) {
     return NextResponse.json({
       events: (events ?? []).map((e) => ({
         ...e,
-        stats: stats.get(e.id) ?? { sold: 0, entered: 0, revenue: 0 },
+        stats: { ...(stats.get(e.id) ?? { sold: 0, entered: 0, revenue: 0, sent: 0 }), sent: sentByEvent.get(e.id) ?? 0 },
       })),
     });
   } catch (err) {
