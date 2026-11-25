@@ -1,1 +1,67 @@
 # toyama-line-ticket-coupon
+
+登別ライブチケット＆クーポン（LINE LIFF）。LINE公式アカウントのリッチメニューから開き、
+
+- 🎫 ライブチケットの購入（Stripe Checkout）と入場時の消込
+- 🎁 スポンサー店舗クーポンの利用（LINEユーザーごとに1回）
+
+ができる。
+
+## 仕組み
+
+- ユーザー識別：LIFF の IDトークンをサーバーで LINE の verify API に送って検証し、`sub`（LINEユーザーID）を確定する。
+- DB：Supabase `noboribetsu-o2o`
+  - `sponsor_coupons` … クーポン（スポンサー管理側が登録）
+  - `coupon_uses` … クーポン利用履歴。`(coupon_id, line_user_id)` 一意で1人1回
+  - `live_events` … 公演（価格・定員）
+  - `ticket_orders` … チケット注文。`pending → paid → used`。1人1公演1枚
+- 決済：Stripe Checkout。決済後に戻った画面で `/api/tickets/confirm` が Stripe に問い合わせて確定。Webhook でも確定（保険）。
+
+## API
+
+| メソッド | パス | 内容 |
+| --- | --- | --- |
+| GET | `/api/coupons` | 公開中クーポン（ログイン時は自分の使用状況つき） |
+| POST | `/api/coupons/[id]/use` | クーポン使用（要ログイン） |
+| GET | `/api/tickets` | 公開中の公演＋自分のチケット |
+| POST | `/api/tickets/checkout` | 購入開始。Stripe決済URLを返す（要ログイン） |
+| POST | `/api/tickets/confirm` | 決済結果の確定（要ログイン） |
+| POST | `/api/tickets/[id]/use` | 入場（要ログイン） |
+| POST | `/api/stripe/webhook` | Stripe Webhook |
+
+ログインが必要なAPIは `Authorization: Bearer <LIFF IDトークン>` を付ける。
+
+## 環境変数（Vercel）
+
+| 変数 | 値 |
+| --- | --- |
+| `NEXT_PUBLIC_LIFF_ID` | LIFF ID |
+| `NEXT_PUBLIC_SUPABASE_URL` | `https://wfqngezeppfkoxvzccmw.supabase.co` |
+| `SUPABASE_SERVICE_ROLE_KEY` | Supabase の service_role キー（秘密） |
+| `LINE_LOGIN_CHANNEL_ID` | LIFFアプリが属する LINEログインチャネルの「チャネルID」 |
+| `STRIPE_SECRET_KEY` | Stripe テストモードのシークレットキー `sk_test_...`（秘密） |
+| `STRIPE_WEBHOOK_SECRET` | Stripe Webhook の署名シークレット `whsec_...`（秘密・任意） |
+| `NEXT_PUBLIC_APP_URL` | 任意。決済後の戻り先。未設定ならリクエストのドメイン |
+
+変更後は Redeploy が必要。
+
+## Stripe（テストモード）
+
+1. ダッシュボード右上を「テストモード」にして、開発者 → APIキー から `sk_test_...` を取得。
+2. Webhook：開発者 → Webhook → エンドポイント追加
+   - URL：`https://<本番ドメイン>/api/stripe/webhook`
+   - イベント：`checkout.session.completed`、`checkout.session.async_payment_succeeded`
+   - 署名シークレット `whsec_...` を `STRIPE_WEBHOOK_SECRET` に設定。
+3. テストカード：`4242 4242 4242 4242`、有効期限は未来の日付、CVCは任意の3桁。
+
+## LINE公式アカウントからの配信
+
+1. LINE Developers → LINEログインチャネル → LIFF：Endpoint URL を本番URLにする。Scope は `profile`, `openid`。
+2. LINE Official Account Manager → リッチメニュー：
+   - 「チケット」ボタン → リンク `https://liff.line.me/<LIFF ID>?tab=tickets`
+   - 「クーポン」ボタン → リンク `https://liff.line.me/<LIFF ID>?tab=coupons`
+3. 友だちへの告知は Official Account Manager のメッセージ配信で同じ LIFF URL を送る。
+
+## 公演・クーポンの登録
+
+Supabase の Table Editor で `live_events` / `sponsor_coupons` に行を追加する（`is_published = true` で表示）。

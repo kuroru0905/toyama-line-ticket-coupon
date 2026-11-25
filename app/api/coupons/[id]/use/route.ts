@@ -1,46 +1,53 @@
 import { NextResponse } from 'next/server';
-import { getSupabaseAdmin } from '../../../../lib/supabaseAdmin';
+import { getSupabaseAdmin } from '../../../../../lib/supabaseAdmin';
+import { requireLineUser } from '../../../../../lib/lineAuth';
+import { errorResponse } from '../../../../../lib/apiError';
 
 export const dynamic = 'force-dynamic';
 
-export async function POST(
-  _req: Request,
-  context: { params: { id: string } }
-) {
+// クーポンを使用済みにする（LINEユーザーごとに1回だけ）
+export async function POST(req: Request, context: { params: { id: string } }) {
   try {
     const couponId = context.params.id;
     if (!couponId) {
       return NextResponse.json({ error: 'クーポンIDが指定されていません' }, { status: 400 });
     }
 
+    const user = await requireLineUser(req);
     const supabase = getSupabaseAdmin();
 
-    const { data: updated, error } = await supabase
+    const { data: coupon, error: couponError } = await supabase
       .from('sponsor_coupons')
-      .update({
-        is_used: true,
-        used_at: new Date().toISOString(),
-      })
+      .select('id, shop_name, benefit_title, benefit_detail')
       .eq('id', couponId)
       .eq('is_published', true)
-      .eq('is_used', false)
-      .select('id, shop_name, benefit_title, benefit_detail, is_published, is_used, used_at')
       .maybeSingle();
 
-    if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
+    if (couponError) {
+      return NextResponse.json({ error: couponError.message }, { status: 500 });
+    }
+    if (!coupon) {
+      return NextResponse.json({ error: 'このクーポンは利用対象外です' }, { status: 404 });
     }
 
-    if (!updated) {
-      return NextResponse.json(
-        { error: 'このクーポンはすでに使用済みか、利用対象外です' },
-        { status: 409 }
-      );
+    // (coupon_id, line_user_id) の一意制約で二重利用を防ぐ
+    const { data: use, error: useError } = await supabase
+      .from('coupon_uses')
+      .insert({ coupon_id: couponId, line_user_id: user.userId })
+      .select('used_at')
+      .single();
+
+    if (useError) {
+      if (useError.code === '23505') {
+        return NextResponse.json({ error: 'このクーポンはすでに使用済みです' }, { status: 409 });
+      }
+      return NextResponse.json({ error: useError.message }, { status: 500 });
     }
 
-    return NextResponse.json({ coupon: updated });
+    return NextResponse.json({
+      coupon: { ...coupon, is_used: true, used_at: use.used_at },
+    });
   } catch (err) {
-    const message = err instanceof Error ? err.message : 'サーバーエラーが発生しました';
-    return NextResponse.json({ error: message }, { status: 500 });
+    return errorResponse(err);
   }
 }
