@@ -452,9 +452,9 @@ export default function HomePage() {
       const used = ticket?.status === 'used';
       return (
         <article key={ev.id} className="ticket tilt" aria-label={ev.title} data-active="false" {...tiltHandlers}>
-          <div className={`ticket-body metal ${ticket && !used ? 'metal-cobalt' : 'metal-silver'}`}>
+          <div className="ticket-body">
             <div className="ticket-head">
-              <span className="muted">{ticket ? 'あなたのチケット' : 'ライブ'}</span>
+              {ticket && !used ? <span className="metal-chip metal-cobalt">あなたのチケット</span> : <span className="muted">{ticket ? 'あなたのチケット' : 'ライブ'}</span>}
               {ticket ? <span className={`badge ${used ? '' : 'brand'}`}>{used ? '入場済み' : '購入済み'}</span> : saleBadge(ev)}
             </div>
             <h2 className="ticket-title">{ev.title}</h2>
@@ -464,7 +464,7 @@ export default function HomePage() {
                 <dt>日付</dt>
                 <dd className="num">
                   {fmtDay(ev.starts_at)}
-                  <span className="metal-sub" style={{ fontSize: 14, fontWeight: 500, marginLeft: 4 }}>{fmtWeek(ev.starts_at)}</span>
+                  <span style={{ fontSize: 14, fontWeight: 500, marginLeft: 4, color: 'var(--ink-2)' }}>{fmtWeek(ev.starts_at)}</span>
                 </dd>
               </div>
               <div>
