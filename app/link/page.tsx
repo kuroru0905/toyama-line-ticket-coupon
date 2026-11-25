@@ -79,57 +79,36 @@ export default function LinkPage() {
   };
 
   return (
-    <main
-      style={{
-        minHeight: '100vh',
-        backgroundColor: '#f8fafc',
-        padding: '32px 16px',
-        fontFamily: 'system-ui, -apple-system, "Hiragino Sans", sans-serif',
-        color: '#0f172a',
-      }}
-    >
-      <div
-        style={{
-          maxWidth: 420,
-          margin: '0 auto',
-          backgroundColor: '#ffffff',
-          border: '1px solid #e2e8f0',
-          borderRadius: 12,
-          padding: 24,
-          textAlign: 'center',
-        }}
-      >
-        <div style={{ fontSize: 40, marginBottom: 8 }}>
-          {phase === 'done' ? '✅' : phase === 'error' ? '⚠️' : '🔗'}
-        </div>
-        <h1 style={{ fontSize: 18, margin: '0 0 8px' }}>スポンサーLINE連携</h1>
-        <p style={{ fontSize: 14, color: '#475569', lineHeight: 1.7, margin: 0 }}>{message}</p>
-
-        {phase === 'done' && (
-          <p style={{ fontSize: 13, color: '#475569', lineHeight: 1.7, marginTop: 12, whiteSpace: 'pre-line' }}>
-            {sponsorName ? `「${sponsorName}」の` : ''}スポンサーとして、
-            このLINEアカウントでスポンサー先行販売のチケットを購入できます。
-            {!active && '\n※ 現在、契約は有効化前です（お支払いの確認後に先行購入できるようになります）。'}
-          </p>
+    <main className="app" style={{ paddingBottom: 32 }}>
+      <header className="topbar">
+        <h1>
+          <span className="mark" aria-hidden />
+          スポンサーのLINE連携
+        </h1>
+      </header>
+      <div className="stack">
+        {phase === 'error' ? (
+          <div className="notice danger" role="alert">
+            <strong>連携できませんでした</strong>
+            {message}
+          </div>
+        ) : phase === 'done' ? (
+          <div className="notice ok" role="status">
+            <strong>連携が終わりました</strong>
+            {sponsorName ? `「${sponsorName}」の` : ''}スポンサーとして、このLINEでスポンサー先行販売のチケットを買えます。
+            {!active && (
+              <>
+                <br />
+                いまはご契約の有効化前です。お支払いの確認後から先行購入できます。
+              </>
+            )}
+          </div>
+        ) : (
+          <p className="empty">{message}</p>
         )}
 
         {(phase === 'done' || phase === 'error') && (
-          <button
-            type="button"
-            onClick={goHome}
-            style={{
-              marginTop: 20,
-              width: '100%',
-              padding: '12px 14px',
-              borderRadius: 8,
-              border: 'none',
-              backgroundColor: '#0284c7',
-              color: '#ffffff',
-              fontWeight: 700,
-              fontSize: 15,
-              cursor: 'pointer',
-            }}
-          >
+          <button type="button" className="btn" onClick={goHome}>
             チケット・クーポンを見る
           </button>
         )}
