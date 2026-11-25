@@ -1,12 +1,14 @@
 /* ===== デザイントークン（スポンサーサイトと共通。ブランドカラーが決まったらここだけ差し替える） ===== */
 :root {
-  --ink: #1c2230;
-  --ink-2: #4a5263;
-  --ink-3: #6b7383;
-  --line: #dde1e7;
-  --line-strong: #b9c0cb;
+  --ink: #1d1d1f;
+  --ink-2: #6e6e73;
+  --ink-3: #86868b;
+  --line: #d2d2d7;
+  --line-strong: #c7c7cc;
   --paper: #ffffff;
-  --surface: #f4f5f7;
+  --surface: #f5f5f7;
+  --shadow-card: 2px 4px 12px rgba(0, 0, 0, 0.08);
+  --shadow-card-hover: 2px 4px 16px rgba(0, 0, 0, 0.16);
   --brand: #1a5cff; /* ブランドカラー：近未来感のある青 */
   --brand-hover: #0f45d6;
   --brand-soft: #ebf1ff;
@@ -37,8 +39,13 @@ body {
   margin: 0;
   background: var(--surface);
   color: var(--ink);
-  font-family: var(--font-body), 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', Meiryo, sans-serif;
-  line-height: 1.7;
+  /* Apple端末ではSF Pro＋ヒラギノ、それ以外はInter＋Noto Sans JP */
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro JP', 'SF Pro Text', var(--font-latin), 'Hiragino Sans',
+    'Hiragino Kaku Gothic ProN', var(--font-jp), sans-serif;
+  font-size: 17px;
+  line-height: 1.55;
+  letter-spacing: 0.01em;
+  -moz-osx-font-smoothing: grayscale;
   -webkit-font-smoothing: antialiased;
 }
 
@@ -52,8 +59,14 @@ button {
 }
 
 .num {
-  font-family: var(--font-num), var(--font-body), sans-serif;
   font-feature-settings: 'tnum' 1;
+  letter-spacing: -0.01em;
+}
+h1,
+h2,
+h3 {
+  font-feature-settings: 'palt' 1;
+  letter-spacing: -0.005em;
 }
 
 /* ===== 画面の骨組み ===== */
@@ -69,24 +82,21 @@ button {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 16px 0 12px;
+  padding: 28px 0 16px;
 }
 .topbar h1 {
   margin: 0;
-  font-size: 20px;
-  line-height: 1.4;
+  font-size: 34px;
+  font-weight: 600;
+  line-height: 1.15;
+  letter-spacing: -0.01em;
 }
 .topbar .who {
   font-size: 13px;
   color: var(--ink-2);
 }
 .mark {
-  display: inline-block;
-  width: 10px;
-  height: 10px;
-  border-radius: 2px;
-  background: var(--accent);
-  margin-right: 8px;
+  display: none;
 }
 
 .stack {
@@ -102,8 +112,10 @@ button {
   right: 0;
   bottom: 0;
   z-index: 20;
-  background: var(--paper);
-  border-top: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.72);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  backdrop-filter: saturate(180%) blur(20px);
+  border-top: 1px solid rgba(0, 0, 0, 0.08);
   padding-bottom: env(safe-area-inset-bottom);
 }
 .tabbar-inner {
@@ -117,13 +129,13 @@ button {
   border: 0;
   background: none;
   color: var(--ink-2);
-  font-size: 15px;
-  font-weight: 700;
+  font-size: 13px;
+  font-weight: 500;
   position: relative;
   cursor: pointer;
 }
 .tab[aria-selected='true'] {
-  color: var(--ink);
+  color: var(--brand);
 }
 .tab[aria-selected='true']::before {
   content: '';
@@ -151,14 +163,14 @@ button {
   align-items: center;
   justify-content: center;
   width: 100%;
-  min-height: 52px;
-  padding: 12px 16px;
-  border-radius: 10px;
+  min-height: 50px;
+  padding: 12px 22px;
+  border-radius: 980px;
   border: 1px solid var(--brand);
   background: var(--brand);
   color: #fff;
-  font-size: 16px;
-  font-weight: 700;
+  font-size: 17px;
+  font-weight: 500;
   line-height: 1.4;
   cursor: pointer;
   text-decoration: none;
@@ -172,8 +184,13 @@ button {
 }
 .btn.secondary {
   background: var(--paper);
-  color: var(--ink);
-  border-color: var(--line-strong);
+  color: var(--brand);
+  border-color: var(--brand);
+}
+.btn.secondary:disabled {
+  color: var(--ink-2);
+  border-color: var(--line);
+  opacity: 1;
 }
 .btn.accent {
   background: var(--accent);
@@ -184,7 +201,7 @@ button {
 /* ===== お知らせ帯 ===== */
 .notice {
   position: relative;
-  border-radius: 10px;
+  border-radius: 14px;
   border: 1px solid var(--line);
   background: var(--paper);
   padding: 12px 14px 12px 18px;
@@ -241,7 +258,7 @@ button {
   background: var(--surface);
   color: var(--ink-2);
   font-size: 12px;
-  font-weight: 700;
+  font-weight: 600;
   line-height: 20px;
   padding: 1px 10px;
 }
@@ -264,11 +281,11 @@ button {
 /* ===== チケット（半券つき） ===== */
 .ticket {
   background: var(--paper);
-  border: 1px solid var(--line);
-  border-radius: 14px;
+  border-radius: 24px;
+  box-shadow: var(--shadow-card);
 }
 .ticket-body {
-  padding: 18px 18px 16px;
+  padding: 22px 22px 18px;
 }
 .ticket-head {
   display: flex;
@@ -277,9 +294,10 @@ button {
   gap: 8px;
 }
 .ticket-title {
-  margin: 8px 0 2px;
-  font-size: 20px;
-  line-height: 1.4;
+  margin: 10px 0 2px;
+  font-size: 24px;
+  font-weight: 600;
+  line-height: 1.3;
 }
 .ticket-meta {
   display: grid;
@@ -297,6 +315,7 @@ button {
   font-size: 24px;
   font-weight: 600;
   line-height: 1.2;
+  letter-spacing: -0.01em;
 }
 .ticket-desc {
   margin: 12px 0 0;
@@ -317,7 +336,7 @@ button {
   height: 20px;
   border-radius: 999px;
   background: var(--surface);
-  border: 1px solid var(--line);
+  border: 0;
 }
 .perf::before {
   left: -11px;
@@ -328,7 +347,7 @@ button {
   clip-path: inset(0 50% 0 0);
 }
 .stub {
-  padding: 14px 18px 18px;
+  padding: 18px 22px 22px;
 }
 .stub.accent {
   background: var(--accent);
@@ -345,9 +364,9 @@ button {
 /* ===== クーポン ===== */
 .coupon {
   background: var(--paper);
-  border: 1px solid var(--line);
-  border-radius: 14px;
-  padding: 16px 18px;
+  border-radius: 24px;
+  padding: 20px 22px;
+  box-shadow: var(--shadow-card);
 }
 .coupon.used {
   background: var(--surface);
@@ -357,9 +376,10 @@ button {
   color: var(--ink-2);
 }
 .coupon h3 {
-  margin: 2px 0 4px;
-  font-size: 18px;
-  line-height: 1.45;
+  margin: 4px 0 6px;
+  font-size: 21px;
+  font-weight: 600;
+  line-height: 1.35;
 }
 .coupon p {
   margin: 0 0 12px;
@@ -379,7 +399,9 @@ button {
   position: fixed;
   inset: 0;
   z-index: 40;
-  background: rgba(28, 34, 48, 0.5);
+  background: rgba(0, 0, 0, 0.4);
+  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
   display: flex;
   align-items: flex-end;
   justify-content: center;
@@ -388,19 +410,20 @@ button {
   width: 100%;
   max-width: 560px;
   background: var(--paper);
-  border-radius: 18px 18px 0 0;
+  border-radius: 28px 28px 0 0;
   padding: 20px 18px calc(18px + env(safe-area-inset-bottom));
   animation: sheet-in 180ms ease-out;
 }
 .sheet h2 {
   margin: 0;
-  font-size: 20px;
-  line-height: 1.4;
+  font-size: 24px;
+  font-weight: 600;
+  line-height: 1.3;
 }
 .sheet .big {
-  margin: 12px 0;
-  padding: 14px;
-  border-radius: 10px;
+  margin: 14px 0;
+  padding: 16px;
+  border-radius: 16px;
   background: var(--surface);
 }
 .sheet ul {
@@ -449,7 +472,7 @@ button {
 }
 .tilt[data-active='true'] {
   transition: transform 80ms linear, box-shadow 200ms;
-  box-shadow: 0 18px 40px -18px rgba(26, 92, 255, 0.45);
+  box-shadow: var(--shadow-card-hover);
 }
 .tilt::after {
   content: '';
@@ -512,4 +535,131 @@ button {
   .pane.glide-from-left {
     animation: none;
   }
+}
+
+/* タブバーのアイコン（上にアイコン、下に文字） */
+.tab {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+}
+.tab-icon {
+  display: block;
+}
+.tab .dot {
+  position: absolute;
+  top: 10px;
+  left: calc(50% + 12px);
+  margin: 0;
+  background: #ff3b30;
+}
+.tab[aria-selected='true']::before {
+  display: none;
+}
+
+/* ===== メタリックの質感（スポンサー枠・チケット） =====
+   色の層＋ヘアライン（細い筋）＋カーソル・指に合わせて動く光。
+   文字は各金属の一番暗い色でも 4.5:1 以上になる色を使う */
+.metal {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  color: var(--metal-ink);
+  background-image: repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.09) 0 1px, transparent 1px 3px),
+    repeating-linear-gradient(90deg, rgba(0, 0, 0, 0.035) 0 1px, transparent 1px 5px), var(--metal-base);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.65), inset 0 -1px 0 rgba(0, 0, 0, 0.12);
+}
+/* 光の帯：Tilt が渡す --gx に合わせて左右に流れる */
+.metal::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background: linear-gradient(110deg, transparent 35%, rgba(255, 255, 255, 0.55) 48%, transparent 62%);
+  background-size: 260% 100%;
+  background-position: calc(100% - var(--gx, 30%)) 0;
+  mix-blend-mode: soft-light;
+  transition: background-position 600ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.metal > * {
+  position: relative;
+  z-index: 1;
+}
+.metal .tilt-glare {
+  display: none;
+}
+.metal .muted,
+.metal .metal-sub,
+.metal .ticket-meta dt {
+  color: var(--metal-sub);
+}
+.metal-gold {
+  --metal-ink: #2b1f05;
+  --metal-sub: #4a3510;
+  --metal-base: linear-gradient(125deg, #d2ab55 0%, #f3df9c 20%, #d8b762 38%, #fbf0c4 52%, #c49a42 70%, #ecd38a 86%, #cfa650 100%);
+}
+.metal-silver {
+  --metal-ink: #1d1d1f;
+  --metal-sub: #48484a;
+  --metal-base: linear-gradient(125deg, #d4d7dc 0%, #f7f8fa 20%, #c4c8ce 38%, #ffffff 52%, #bfc3ca 70%, #eceef1 86%, #cdd0d5 100%);
+}
+.metal-bronze {
+  --metal-ink: #2a1406;
+  --metal-sub: #3d2210;
+  --metal-base: linear-gradient(125deg, #cf9764 0%, #eebc8c 20%, #d39b66 38%, #f6d3ad 52%, #c48a58 70%, #e0a571 86%, #cc935f 100%);
+}
+/* ブランドの青を金属にした色（チケットの半券など）。白文字 */
+.metal-cobalt {
+  --metal-ink: #ffffff;
+  --metal-sub: rgba(255, 255, 255, 0.86);
+  --metal-base: linear-gradient(125deg, #0f3593 0%, #2a5fe6 22%, #123c9e 40%, #3466e8 54%, #0c2f85 72%, #2557d8 88%, #10379a 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.25), inset 0 -1px 0 rgba(0, 0, 0, 0.2);
+}
+/* 小さな金属のしるし（契約の切り替えなど） */
+.metal-dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  background-image: var(--metal-base);
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.15);
+}
+
+/* ===== 大事な言葉の強調（サイト全体で1色に統一） =====
+   ブランドの青から深い青へのグラデーション。リンクは「›」や下線で区別する */
+.em {
+  font-weight: 600;
+  color: var(--brand);
+  background-image: linear-gradient(90deg, #1a5cff, #0077c8);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.metal .em {
+  background: none;
+  color: inherit;
+  -webkit-text-fill-color: currentColor;
+  font-weight: 700;
+}
+@media (forced-colors: active) {
+  .em {
+    -webkit-text-fill-color: currentColor;
+    background: none;
+  }
+}
+
+.ticket-body.metal {
+  border-radius: 24px 24px 0 0;
+}
+@media (prefers-reduced-motion: reduce) {
+  .metal::after {
+    background-position: 70% 0 !important;
+  }
+}
+.notice strong.em {
+  display: inline;
+  font-size: inherit;
 }
