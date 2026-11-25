@@ -104,3 +104,26 @@ export function parseCouponInput(body: Json, partial: boolean) {
 
   return out;
 }
+
+// クーポンの審査（承認・差し戻し）
+const REVIEW_STATUSES = ['pending', 'approved', 'rejected'];
+
+export function parseCouponInputWithReview(body: Json, partial: boolean) {
+  const out = parseCouponInput(body, partial);
+
+  if (body.review_status !== undefined) {
+    if (typeof body.review_status !== 'string' || REVIEW_STATUSES.indexOf(body.review_status) === -1) {
+      throw new ValidationError('審査状態の値が不正です');
+    }
+    out.review_status = body.review_status;
+    // 差し戻しのときだけ理由を残す（店舗のマイページに表示される）
+    if (body.review_status === 'rejected') {
+      out.review_note = str(body, 'review_note', '差し戻し理由', true);
+    } else {
+      out.review_note = null;
+    }
+  }
+
+  if (Object.keys(out).length > 0) out.updated_at = new Date().toISOString();
+  return out;
+}

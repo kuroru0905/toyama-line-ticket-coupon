@@ -21,6 +21,7 @@ export async function POST(req: Request, context: { params: { id: string } }) {
       .select('id, shop_name, benefit_title, benefit_detail')
       .eq('id', couponId)
       .eq('is_published', true)
+      .eq('review_status', 'approved')
       .maybeSingle();
 
     if (couponError) {
