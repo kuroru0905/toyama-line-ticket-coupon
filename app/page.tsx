@@ -401,7 +401,7 @@ export default function HomePage() {
       <>
         {ev.sale_state === 'presale' && (
           <p className="muted" style={{ margin: '0 0 10px' }}>
-            いまはスポンサー先行販売の期間です
+            いまは<strong className="em">スポンサー先行販売</strong>の期間です
             {ev.general_sale_start ? `（一般販売は${fmtDateTime(ev.general_sale_start)}から）` : ''}。
             {presaleLocked && 'スポンサーの方は、マイページの「LINEと連携する」を済ませると買えます。'}
           </p>
@@ -411,7 +411,7 @@ export default function HomePage() {
         </button>
         {!presaleLocked && (
           <p className="muted" style={{ margin: '8px 0 0', fontSize: 12, textAlign: 'center' }}>
-            お客様都合のキャンセル・返金はできません（公演中止の場合は全額返金）。
+            お客様都合の<strong className="em">キャンセル・返金はできません</strong>（公演中止の場合は全額返金）。
             <a href={`${LEGAL_SITE}/tokushoho#ticket`} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--brand)' }}>
               特定商取引法に基づく表記
             </a>
@@ -428,7 +428,7 @@ export default function HomePage() {
         <p className="muted" style={{ margin: 0, textAlign: 'center' }}>
           入場の受付は <span className="num" style={{ fontSize: 17, color: 'var(--ink)' }}>{fmtDateTime(ev.entry_opens_at)}</span> から
           <br />
-          （開演3時間前から当日23:59まで）
+          （<strong className="em">開演3時間前から当日23:59まで</strong>）
         </p>
       );
     }
@@ -452,7 +452,7 @@ export default function HomePage() {
       const used = ticket?.status === 'used';
       return (
         <article key={ev.id} className="ticket tilt" aria-label={ev.title} data-active="false" {...tiltHandlers}>
-          <div className="ticket-body">
+          <div className={`ticket-body metal ${ticket && !used ? 'metal-cobalt' : 'metal-silver'}`}>
             <div className="ticket-head">
               <span className="muted">{ticket ? 'あなたのチケット' : 'ライブ'}</span>
               {ticket ? <span className={`badge ${used ? '' : 'brand'}`}>{used ? '入場済み' : '購入済み'}</span> : saleBadge(ev)}
@@ -464,7 +464,7 @@ export default function HomePage() {
                 <dt>日付</dt>
                 <dd className="num">
                   {fmtDay(ev.starts_at)}
-                  <span style={{ fontSize: 14, fontWeight: 500, marginLeft: 4, color: 'var(--ink-2)' }}>{fmtWeek(ev.starts_at)}</span>
+                  <span className="metal-sub" style={{ fontSize: 14, fontWeight: 500, marginLeft: 4 }}>{fmtWeek(ev.starts_at)}</span>
                 </dd>
               </div>
               <div>
@@ -500,7 +500,7 @@ export default function HomePage() {
         <div className="notice warn">
           <strong>お店のクーポンが1枚使えます</strong>
           {entitlement.eventTitle ? `「${entitlement.eventTitle}」の入場特典です。` : ''}
-          好きなお店を1つ選んでください。<span className="num" style={{ fontSize: 16 }}>{fmtDateTime(entitlement.deadline)}</span> まで使えます。
+          好きなお店を1つ選んでください。<strong className="em num" style={{ fontSize: 16 }}>{fmtDateTime(entitlement.deadline)} まで</strong>使えます。
         </div>
       );
     }
@@ -596,8 +596,8 @@ export default function HomePage() {
               </div>
               <ul>
                 <li>お店の人の前で押してください。</li>
-                <li>今回の入場で使えるのは1枚だけです。使うと、ほかのお店のクーポンは次のライブまで使えません。</li>
-                <li>一度使うと元に戻せません。</li>
+                <li>今回の入場で使えるのは<strong className="em">1枚だけ</strong>です。使うと、ほかのお店のクーポンは次のライブまで使えません。</li>
+                <li>一度使うと<strong className="em">元に戻せません</strong>。</li>
               </ul>
               <div className="actions">
                 <button type="button" className="btn accent" disabled={busy} onClick={() => doCoupon(confirm.coupon)}>
