@@ -39,9 +39,9 @@ type Ticket = {
 
 type Tab = 'tickets' | 'coupons';
 
-// クーポンを使える権利（入場1回につき1枚）
+// クーポンを使える権利（入場1回につき各店1回ずつ・ライブの翌日23:59まで）
 type CouponEntitlement = {
-  state: 'none' | 'not_entered' | 'available' | 'used' | 'expired';
+  state: 'none' | 'not_entered' | 'available' | 'expired';
   eventTitle: string | null;
   deadline: string | null;
   message: string;
@@ -268,9 +268,9 @@ export default function HomePage() {
         return;
       }
       setTickets((prev) => prev.map((t) => (t.id === ticket.id ? json.ticket : t)));
-      // 入場するとクーポンが1枚使えるようになるので、状態を取り直す
+      // 入場するとクーポンが使えるようになるので、状態を取り直す
       await fetchAll();
-      setInfoMsg('入場しました。入場特典として、お店のクーポンが1枚使えます。');
+      setInfoMsg('入場しました。入場特典として、お店のクーポンが各店1回ずつ使えます。');
     } catch {
       setErrorMsg('通信できませんでした');
     } finally {
@@ -291,7 +291,6 @@ export default function HomePage() {
         return;
       }
       setCoupons((prev) => prev.map((c) => (c.id === coupon.id ? json.coupon : c)));
-      // 他のお店のクーポンもロックされるので、状態を取り直す
       await fetchAll();
       setInfoMsg(`「${coupon.benefit_title}」を使いました。この画面をお店の人に見せてください。`);
     } catch {
@@ -498,9 +497,9 @@ export default function HomePage() {
     if (entitlement.state === 'available') {
       return (
         <div className="notice warn">
-          <strong>お店のクーポンが1枚使えます</strong>
+          <strong>お店のクーポンが、各店1回ずつ使えます</strong>
           {entitlement.eventTitle ? `「${entitlement.eventTitle}」の入場特典です。` : ''}
-          好きなお店を1つ選んでください。<strong className="em num" style={{ fontSize: 16 }}>{fmtDateTime(entitlement.deadline)} まで</strong>使えます。
+          何軒でもはしごできます。<strong className="em num" style={{ fontSize: 16 }}>{fmtDateTime(entitlement.deadline)} まで</strong>使えます。
         </div>
       );
     }
@@ -511,7 +510,6 @@ export default function HomePage() {
     const canUse = entitlement?.state === 'available';
     const lockedLabel = () => {
       switch (entitlement?.state) {
-        case 'used':
         case 'expired':
           return '次のライブで使えます';
         case 'not_entered':
@@ -596,7 +594,7 @@ export default function HomePage() {
               </div>
               <ul>
                 <li>お店の人の前で押してください。</li>
-                <li>今回の入場で使えるのは<strong className="em">1枚だけ</strong>です。使うと、ほかのお店のクーポンは次のライブまで使えません。</li>
+                <li>同じお店のクーポンは、今回のライブでは<strong className="em">1回だけ</strong>です。ほかのお店のクーポンは続けて使えます。</li>
                 <li>一度使うと<strong className="em">元に戻せません</strong>。</li>
               </ul>
               <div className="actions">

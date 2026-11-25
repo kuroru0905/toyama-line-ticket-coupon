@@ -35,15 +35,16 @@ export async function GET(req: Request) {
     }
 
     const coupons = visible.map((c) => {
-      // 「使用済み」は今回の入場の権利で使ったクーポンだけ
-      const usedNow = entitlement?.state === 'used' && entitlement.usedCouponId === c.id;
+      // 「使用済み」は今回の入場で使ったクーポンだけ（前のライブで使ったお店も、新しい入場ではまた使える）
+      const usedAt = entitlement?.used[c.id] ?? null;
+      const usedNow = Boolean(usedAt);
       return {
         id: c.id,
         shop_name: c.shop_name,
         benefit_title: c.benefit_title,
         benefit_detail: c.benefit_detail,
         is_used: usedNow,
-        used_at: usedNow ? entitlement?.usedAt ?? null : null,
+        used_at: usedAt,
       };
     });
 

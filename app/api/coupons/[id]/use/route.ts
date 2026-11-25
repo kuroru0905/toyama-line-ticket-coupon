@@ -6,7 +6,7 @@ import { getCouponEntitlement, entitlementMessage } from '../../../../../lib/cou
 
 export const dynamic = 'force-dynamic';
 
-// クーポンを使う（入場1回につき1枚。ルールは lib/couponEntitlement.ts）
+// クーポンを使う（入場1回につき各店1回ずつ。ルールは lib/couponEntitlement.ts）
 export async function POST(req: Request, context: { params: { id: string } }) {
   try {
     const couponId = context.params.id;
@@ -50,7 +50,11 @@ export async function POST(req: Request, context: { params: { id: string } }) {
       return NextResponse.json({ error: entitlementMessage(entitlement) }, { status: 403 });
     }
 
-    // ticket_order_id の一意制約で「1入場1枚」をDBでも保証（同時押し対策）
+    if (entitlement.used[couponId]) {
+      return NextResponse.json({ error: 'このお店のクーポンは、今回のライブではもう使いました。ほかのお店のクーポンは使えます' }, { status: 409 });
+    }
+
+    // (ticket_order_id, coupon_id) の一意制約で「1入場につき各店1回」をDBでも保証（同時押し対策）
     const { data: use, error: useError } = await supabase
       .from('coupon_uses')
       .insert({
@@ -64,7 +68,7 @@ export async function POST(req: Request, context: { params: { id: string } }) {
     if (useError) {
       if (useError.code === '23505') {
         return NextResponse.json(
-          { error: '今回の入場分のクーポンは使用済みです。次のイベントに入場すると、また1枚使えます' },
+          { error: 'このお店のクーポンは、今回のライブではもう使いました。ほかのお店のクーポンは使えます' },
           { status: 409 }
         );
       }
