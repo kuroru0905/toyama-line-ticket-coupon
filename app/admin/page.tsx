@@ -385,11 +385,17 @@ export default function AdminPage() {
       }
     }
     try {
-      await api(`/api/admin/coupons/${c.id}`, {
+      const res = await api(`/api/admin/coupons/${c.id}`, {
         method: 'PATCH',
         body: JSON.stringify({ review_status: status, review_note: note }),
       });
-      flash(status === 'approved' ? '承認しました。LINEに掲載されます' : '差し戻しました');
+      const base = status === 'approved' ? '承認しました。LINEに掲載されます。' : '差し戻しました。';
+      const mailNote = !c.sponsor_name
+        ? ''
+        : res.mailed
+          ? '店舗に結果をメールしました。'
+          : '※ 店舗へのメールは送れませんでした（メール設定を確認してください）。';
+      flash(base + mailNote);
       await loadCoupons();
     } catch (e) {
       setErrorMsg(e instanceof Error ? e.message : '更新に失敗しました');
