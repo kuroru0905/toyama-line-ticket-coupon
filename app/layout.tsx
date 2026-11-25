@@ -4,7 +4,7 @@ import type { Metadata } from 'next';
 export const metadata: Metadata = {
   title: '登別ライブチケット＆クーポン | 外山企画',
   description:
-    'LINE公式アカウントでのチケット購入・発券・利用と、ライブ終了後のスポンサー店舗クーポン配布・利用システム',
+    'LINE公式アカウントでのチケット購入・発券・利用と、入場者特典のスポンサー店舗クーポン利用システム',
 };
 
 export default function RootLayout({

@@ -19,7 +19,7 @@ export async function POST(req: Request, context: { params: { id: string } }) {
 
     const { data: coupon, error: couponError } = await supabase
       .from('sponsor_coupons')
-      .select('id, shop_name, benefit_title, benefit_detail')
+      .select('id, sponsor_id, shop_name, benefit_title, benefit_detail')
       .eq('id', couponId)
       .eq('is_published', true)
       .eq('review_status', 'approved')
@@ -30,6 +30,18 @@ export async function POST(req: Request, context: { params: { id: string } }) {
     }
     if (!coupon) {
       return NextResponse.json({ error: 'このクーポンは利用対象外です' }, { status: 404 });
+    }
+
+    // 解約・未払いのスポンサーのクーポンは使えない
+    if (coupon.sponsor_id) {
+      const { data: sponsor } = await supabase
+        .from('sponsors')
+        .select('status')
+        .eq('id', coupon.sponsor_id)
+        .maybeSingle();
+      if (!sponsor || sponsor.status !== 'active') {
+        return NextResponse.json({ error: 'このクーポンは現在掲載を終了しています' }, { status: 404 });
+      }
     }
 
     // 今、クーポンを使える権利があるか
@@ -60,7 +72,14 @@ export async function POST(req: Request, context: { params: { id: string } }) {
     }
 
     return NextResponse.json({
-      coupon: { ...coupon, is_used: true, used_at: use.used_at },
+      coupon: {
+        id: coupon.id,
+        shop_name: coupon.shop_name,
+        benefit_title: coupon.benefit_title,
+        benefit_detail: coupon.benefit_detail,
+        is_used: true,
+        used_at: use.used_at,
+      },
     });
   } catch (err) {
     return errorResponse(err);
