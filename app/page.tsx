@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import liff from '@line/liff';
 
 type Coupon = {
@@ -63,6 +63,41 @@ const fmtWeek = (iso: string) => new Date(iso).toLocaleDateString('ja-JP', { ...
 const fmtTime = (iso: string) => new Date(iso).toLocaleTimeString('ja-JP', { ...TZ, hour: '2-digit', minute: '2-digit' });
 const yen = (n: number) => `¥${n.toLocaleString('ja-JP')}`;
 
+const reducedMotion = () => typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+// 指（またはカーソル）の位置に合わせてチケットが傾き、青い光が追いかける。離すと滑って戻る
+const tiltHandlers = {
+  onPointerMove: (e: React.PointerEvent<HTMLElement>) => {
+    if (reducedMotion()) return;
+    if (e.pointerType !== 'mouse' && e.buttons === 0) return;
+    const el = e.currentTarget;
+    const r = el.getBoundingClientRect();
+    const px = Math.min(1, Math.max(0, (e.clientX - r.left) / r.width));
+    const py = Math.min(1, Math.max(0, (e.clientY - r.top) / r.height));
+    el.dataset.active = 'true';
+    el.style.transform = `perspective(900px) rotateX(${((0.5 - py) * 8).toFixed(2)}deg) rotateY(${((px - 0.5) * 8).toFixed(2)}deg)`;
+    el.style.setProperty('--gx', `${(px * 100).toFixed(1)}%`);
+    el.style.setProperty('--gy', `${(py * 100).toFixed(1)}%`);
+  },
+  onPointerDown: (e: React.PointerEvent<HTMLElement>) => {
+    if (e.pointerType === 'mouse') return;
+    tiltHandlers.onPointerMove({ ...e, buttons: 1 } as React.PointerEvent<HTMLElement>);
+  },
+  onPointerLeave: (e: React.PointerEvent<HTMLElement>) => {
+    e.currentTarget.dataset.active = 'false';
+    e.currentTarget.style.transform = '';
+  },
+  onPointerUp: (e: React.PointerEvent<HTMLElement>) => {
+    if (e.pointerType === 'mouse') return;
+    e.currentTarget.dataset.active = 'false';
+    e.currentTarget.style.transform = '';
+  },
+  onPointerCancel: (e: React.PointerEvent<HTMLElement>) => {
+    e.currentTarget.dataset.active = 'false';
+    e.currentTarget.style.transform = '';
+  },
+};
+
 export default function HomePage() {
   const [tab, setTab] = useState<Tab>('tickets');
   const [liffReady, setLiffReady] = useState(false);
@@ -81,6 +116,9 @@ export default function HomePage() {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [infoMsg, setInfoMsg] = useState<string | null>(null);
   const [confirm, setConfirm] = useState<Confirm | null>(null);
+  const [glide, setGlide] = useState<'' | 'glide-from-right' | 'glide-from-left'>('');
+  const paneRef = useRef<HTMLDivElement>(null);
+  const swipe = useRef<{ x: number; y: number; dx: number; locked: 'x' | 'y' | null } | null>(null);
 
   // ---- LIFF 初期化 ----
   useEffect(() => {
@@ -279,8 +317,46 @@ export default function HomePage() {
   };
 
   const switchTab = (t: Tab) => {
+    if (t === tab) return;
+    setGlide(t === 'coupons' ? 'glide-from-right' : 'glide-from-left');
     setTab(t);
     window.scrollTo({ top: 0 });
+  };
+
+  // 左右スワイプでチケット⇄クーポン。指についてくるように少しずれて、離すと滑って切り替わる
+  const onTouchStart = (e: React.TouchEvent) => {
+    if (confirm) return;
+    const t = e.touches[0];
+    swipe.current = { x: t.clientX, y: t.clientY, dx: 0, locked: null };
+  };
+  const onTouchMove = (e: React.TouchEvent) => {
+    const s = swipe.current;
+    if (!s) return;
+    const t = e.touches[0];
+    const dx = t.clientX - s.x;
+    const dy = t.clientY - s.y;
+    if (!s.locked && (Math.abs(dx) > 10 || Math.abs(dy) > 10)) s.locked = Math.abs(dx) > Math.abs(dy) ? 'x' : 'y';
+    if (s.locked !== 'x') return;
+    // 端の方向（チケットで右、クーポンで左）は少しだけ動かして「これ以上ない」ことを伝える
+    const edge = (tab === 'tickets' && dx > 0) || (tab === 'coupons' && dx < 0);
+    s.dx = dx;
+    const el = paneRef.current;
+    if (el && !reducedMotion()) {
+      el.style.transition = 'none';
+      el.style.transform = `translateX(${(edge ? dx * 0.12 : dx * 0.35).toFixed(1)}px)`;
+    }
+  };
+  const onTouchEnd = () => {
+    const s = swipe.current;
+    swipe.current = null;
+    const el = paneRef.current;
+    if (el) {
+      el.style.transition = 'transform 300ms cubic-bezier(0.2, 0.8, 0.2, 1)';
+      el.style.transform = '';
+    }
+    if (!s || s.locked !== 'x') return;
+    if (s.dx < -60 && tab === 'tickets') switchTab('coupons');
+    else if (s.dx > 60 && tab === 'coupons') switchTab('tickets');
   };
 
   // ---- 表示部品 ----
@@ -375,7 +451,7 @@ export default function HomePage() {
       const ticket = tickets.find((t) => t.event_id === ev.id);
       const used = ticket?.status === 'used';
       return (
-        <article key={ev.id} className="ticket" aria-label={ev.title}>
+        <article key={ev.id} className="ticket tilt" aria-label={ev.title} data-active="false" {...tiltHandlers}>
           <div className="ticket-body">
             <div className="ticket-head">
               <span className="muted">{ticket ? 'あなたのチケット' : 'ライブ'}</span>
@@ -551,7 +627,7 @@ export default function HomePage() {
           {displayName && <span className="who">{displayName} さん</span>}
         </header>
 
-        <div className="stack">
+        <div className="stack swipe-area" onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd} onTouchCancel={onTouchEnd}>
           {liffError && <div className="notice danger">{liffError}</div>}
 
           {needsLogin && (
@@ -566,14 +642,17 @@ export default function HomePage() {
           {loading ? (
             <p className="empty">読み込んでいます…</p>
           ) : (
-            <>
+            <div ref={paneRef} key={tab} className={`pane stack ${glide}`} onAnimationEnd={() => setGlide('')}>
               {tab === 'tickets' && couponAvailable && (
                 <button type="button" className="btn accent" onClick={() => switchTab('coupons')}>
                   入場特典のクーポンを選ぶ
                 </button>
               )}
               {tab === 'tickets' ? renderTickets() : renderCoupons()}
-            </>
+              <p className="muted" style={{ textAlign: 'center', margin: 0, fontSize: 12 }}>
+                左右にスワイプしても、チケットとクーポンを切り替えられます
+              </p>
+            </div>
           )}
         </div>
 
