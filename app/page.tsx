@@ -671,9 +671,22 @@ export default function HomePage() {
       <nav className="tabbar" aria-label="画面の切り替え">
         <div className="tabbar-inner" role="tablist">
           <button type="button" role="tab" className="tab" aria-selected={tab === 'tickets'} onClick={() => switchTab('tickets')}>
+            <svg className="tab-icon" width="26" height="22" viewBox="0 0 26 22" aria-hidden>
+              <path
+                d="M2 5a2 2 0 0 1 2-2h18a2 2 0 0 1 2 2v3a3 3 0 0 0 0 6v3a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2v-3a3 3 0 0 0 0-6Z"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.8"
+              />
+              <path d="M17 4v14" stroke="currentColor" strokeWidth="1.8" strokeDasharray="2 2.4" />
+            </svg>
             チケット
           </button>
           <button type="button" role="tab" className="tab" aria-selected={tab === 'coupons'} onClick={() => switchTab('coupons')}>
+            <svg className="tab-icon" width="24" height="22" viewBox="0 0 24 22" aria-hidden>
+              <rect x="2.5" y="8" width="19" height="12" rx="2" fill="none" stroke="currentColor" strokeWidth="1.8" />
+              <path d="M1.5 5h21v3h-21zM12 5v15M12 5c-1-3-6-4-6-1s5 1 6 1Zm0 0c1-3 6-4 6-1s-5 1-6 1Z" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
+            </svg>
             クーポン
             {couponAvailable && <span className="dot" aria-label="使えるクーポンがあります" />}
           </button>
