@@ -4,7 +4,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import liff from '@line/liff';
 
 // ---------- 型 ----------
-type EventStats = { sold: number; entered: number; revenue: number };
+type EventStats = { sold: number; entered: number; revenue: number; sent: number };
 
 type AdminEvent = {
   id: string;
@@ -606,11 +606,12 @@ export default function AdminPage() {
               </p>
 
               {/* 集計 */}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, marginBottom: 12 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8, marginBottom: 12 }}>
                 {[
                   ['販売', `${ev.stats.sold}${ev.capacity ? ` / ${ev.capacity}` : ''}枚`],
                   ['入場', `${ev.stats.entered}人`],
                   ['売上', yen(ev.stats.revenue)],
+                  ['店舗送客', `${ev.stats.sent}件`],
                 ].map(([k, v]) => (
                   <div key={k} style={{ background: C.bg, borderRadius: 8, padding: '8px 10px' }}>
                     <div style={{ fontSize: 11, color: C.muted, fontWeight: 700 }}>{k}</div>

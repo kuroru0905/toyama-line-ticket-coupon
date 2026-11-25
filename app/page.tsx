@@ -33,6 +33,14 @@ type Ticket = {
 
 type Tab = 'tickets' | 'coupons';
 
+// クーポンを使える権利（入場1回につき1枚）
+type CouponEntitlement = {
+  state: 'none' | 'not_entered' | 'available' | 'used' | 'expired';
+  eventTitle: string | null;
+  deadline: string | null;
+  message: string;
+};
+
 const COLORS = {
   primary: '#0284c7',
   primaryDark: '#0369a1',
@@ -65,6 +73,7 @@ export default function HomePage() {
   const [displayName, setDisplayName] = useState('ゲスト');
 
   const [coupons, setCoupons] = useState<Coupon[]>([]);
+  const [entitlement, setEntitlement] = useState<CouponEntitlement | null>(null);
   const [events, setEvents] = useState<LiveEvent[]>([]);
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [loading, setLoading] = useState(true);
@@ -129,6 +138,7 @@ export default function HomePage() {
       if (!cRes.ok) throw new Error(cJson.error || 'クーポンの取得に失敗しました');
       if (!tRes.ok) throw new Error(tJson.error || 'チケットの取得に失敗しました');
       setCoupons(cJson.coupons ?? []);
+      setEntitlement(cJson.entitlement ?? null);
       setEvents(tJson.events ?? []);
       setTickets(tJson.tickets ?? []);
     } catch (e) {
@@ -230,6 +240,9 @@ export default function HomePage() {
         return;
       }
       setTickets((prev) => prev.map((t) => (t.id === ticket.id ? json.ticket : t)));
+      // 入場するとクーポンが1枚使えるようになるので、状態を取り直す
+      await fetchAll();
+      setInfoMsg('入場しました！ 🎁 クーポンを1枚使えるようになりました');
     } catch {
       setErrorMsg('通信エラーが発生しました');
     } finally {
@@ -239,8 +252,15 @@ export default function HomePage() {
 
   const handleUseCoupon = async (coupon: Coupon) => {
     if (coupon.is_used || busyId || !requireLogin()) return;
+    if (entitlement?.state !== 'available') {
+      setErrorMsg(entitlement?.message || 'いまはクーポンを使えません');
+      return;
+    }
     const ok = window.confirm(
-      `【${coupon.shop_name}】\n「${coupon.benefit_title}」を使用済みにしますか？\n店員さんの前で押してください。一度使用すると元に戻せません。`
+      `【${coupon.shop_name}】\n「${coupon.benefit_title}」を使いますか？\n\n` +
+        '・店員さんの前で押してください\n' +
+        '・今回の入場で使えるクーポンは1枚だけです。使うと、ほかのお店のクーポンは次のイベントまで使えません\n' +
+        '・一度使うと元に戻せません'
     );
     if (!ok) return;
     try {
@@ -257,6 +277,8 @@ export default function HomePage() {
         return;
       }
       setCoupons((prev) => prev.map((c) => (c.id === coupon.id ? json.coupon : c)));
+      // 他のお店のクーポンもロックされるので、状態を取り直す
+      await fetchAll();
     } catch {
       setErrorMsg('通信エラーが発生しました');
     } finally {
@@ -265,6 +287,47 @@ export default function HomePage() {
   };
 
   // ---- 表示 ----
+  const formatDeadline = (iso: string | null) =>
+    iso
+      ? new Date(iso).toLocaleString('ja-JP', {
+          timeZone: 'Asia/Tokyo',
+          month: 'numeric',
+          day: 'numeric',
+          weekday: 'short',
+          hour: '2-digit',
+          minute: '2-digit',
+        })
+      : '';
+
+  // クーポンの利用状況のお知らせ枠
+  const entitlementBanner = () => {
+    if (!entitlement) return null;
+    const available = entitlement.state === 'available';
+    return (
+      <div
+        style={{
+          padding: 14,
+          borderRadius: 12,
+          border: available ? '1px solid #bbf7d0' : `1px solid ${COLORS.border}`,
+          backgroundColor: available ? '#f0fdf4' : '#f8fafc',
+          fontSize: 13,
+          lineHeight: 1.6,
+        }}
+      >
+        {available ? (
+          <>
+            <div style={{ fontWeight: 700, color: COLORS.ok, fontSize: 15 }}>🎁 クーポンを1枚使えます</div>
+            <div style={{ color: COLORS.sub }}>
+              {entitlement.eventTitle ? `「${entitlement.eventTitle}」の入場特典です。` : ''}
+              好きなお店を1つ選んでください（{formatDeadline(entitlement.deadline)}まで）。
+            </div>
+          </>
+        ) : (
+          <div style={{ color: COLORS.sub, fontWeight: 700 }}>{entitlement.message}</div>
+        )}
+      </div>
+    );
+  };
   const card: React.CSSProperties = {
     backgroundColor: '#ffffff',
     border: `1px solid ${COLORS.border}`,
@@ -391,37 +454,61 @@ export default function HomePage() {
         </div>
       );
     }
-    return coupons.map((coupon) => (
-      <section
-        key={coupon.id}
-        style={{
-          ...card,
-          border: coupon.is_used ? `1px solid #cbd5e1` : '1px solid #bae6fd',
-          opacity: coupon.is_used ? 0.72 : 1,
-        }}
-      >
-        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, marginBottom: 6 }}>
-          <span style={{ fontSize: 12, fontWeight: 700, color: COLORS.primaryDark }}>
-            {coupon.shop_name}
-          </span>
-          {badge(coupon.is_used, '使用済み', '利用可能')}
-        </div>
-        <h2 style={{ fontSize: 17, margin: '0 0 6px', color: COLORS.text }}>{coupon.benefit_title}</h2>
-        <p style={{ fontSize: 13, color: COLORS.sub, margin: '0 0 14px' }}>{coupon.benefit_detail}</p>
-        <button
-          type="button"
-          disabled={coupon.is_used || busyId === coupon.id}
-          onClick={() => handleUseCoupon(coupon)}
-          style={button(coupon.is_used || busyId === coupon.id, coupon.is_used)}
-        >
-          {coupon.is_used
-            ? `使用済み（${formatDateTime(coupon.used_at)}）`
-            : busyId === coupon.id
-              ? '処理中...'
-              : 'クーポンを使用する'}
-        </button>
-      </section>
-    ));
+    const canUse = entitlement?.state === 'available';
+
+    // 使えないときのボタン表示
+    const lockedLabel = () => {
+      switch (entitlement?.state) {
+        case 'used':
+        case 'expired':
+          return '次のイベントで使えます';
+        case 'not_entered':
+          return 'ライブに入場すると使えます';
+        default:
+          return 'チケットをお持ちの方が使えます';
+      }
+    };
+
+    return (
+      <>
+        {entitlementBanner()}
+        {coupons.map((coupon) => {
+          const locked = !coupon.is_used && !canUse;
+          const disabled = coupon.is_used || locked || busyId === coupon.id;
+          return (
+            <section
+              key={coupon.id}
+              style={{
+                ...card,
+                border: coupon.is_used ? `1px solid #cbd5e1` : canUse ? '1px solid #bae6fd' : `1px solid ${COLORS.border}`,
+                opacity: coupon.is_used || locked ? 0.72 : 1,
+              }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, marginBottom: 6 }}>
+                <span style={{ fontSize: 12, fontWeight: 700, color: COLORS.primaryDark }}>{coupon.shop_name}</span>
+                {coupon.is_used ? badge(true, '使用済み', '') : badge(!canUse, '利用不可', '利用可能')}
+              </div>
+              <h2 style={{ fontSize: 17, margin: '0 0 6px', color: COLORS.text }}>{coupon.benefit_title}</h2>
+              <p style={{ fontSize: 13, color: COLORS.sub, margin: '0 0 14px' }}>{coupon.benefit_detail}</p>
+              <button
+                type="button"
+                disabled={disabled}
+                onClick={() => handleUseCoupon(coupon)}
+                style={button(disabled, coupon.is_used || locked)}
+              >
+                {coupon.is_used
+                  ? `使用済み（${formatDateTime(coupon.used_at)}）`
+                  : locked
+                    ? lockedLabel()
+                    : busyId === coupon.id
+                      ? '処理中...'
+                      : 'このお店で使う'}
+              </button>
+            </section>
+          );
+        })}
+      </>
+    );
   };
 
   return (
@@ -488,6 +575,20 @@ export default function HomePage() {
         <p style={{ fontSize: 14, color: COLORS.muted }}>読み込み中...</p>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          {tab === 'tickets' && entitlement?.state === 'available' && (
+            <button
+              type="button"
+              onClick={() => setTab('coupons')}
+              style={{
+                ...button(false),
+                backgroundColor: '#f97316',
+                textAlign: 'left',
+                lineHeight: 1.5,
+              }}
+            >
+              🎁 入場特典：お店のクーポンを1枚使えます（{formatDeadline(entitlement.deadline)}まで）▶
+            </button>
+          )}
           {tab === 'tickets' ? renderTickets() : renderCoupons()}
         </div>
       )}
