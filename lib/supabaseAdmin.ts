@@ -13,5 +13,9 @@ export function getSupabaseAdmin() {
 
   return createClient(url, serviceKey, {
     auth: { persistSession: false },
+    // Next.js のデータキャッシュに Supabase の結果を保存させない（承認・使用の結果がすぐ反映されるように）
+    global: {
+      fetch: (input: RequestInfo | URL, init?: RequestInit) => fetch(input, { ...init, cache: 'no-store' }),
+    },
   });
 }
