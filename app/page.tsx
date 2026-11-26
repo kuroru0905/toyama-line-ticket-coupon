@@ -476,9 +476,10 @@ export default function HomePage() {
       const cancelled = ev.sale_state === 'cancelled';
       return (
         <article key={ev.id} className="ticket tilt" aria-label={ev.title} data-active="false" {...tiltHandlers}>
-          <div className="ticket-body">
+          {/* 上半分は金属の面：自分のチケットは青、それ以外はプラチナ */}
+          <div className={`ticket-body metal-surface ${ticket && !used && !cancelled ? 'metal-cobalt' : 'metal-silver'}`}>
             <div className="ticket-head">
-              {ticket && !used && !cancelled ? <span className="metal-chip metal-cobalt">あなたのチケット</span> : <span className="muted">{ticket ? 'あなたのチケット' : 'ライブ'}</span>}
+              <span className="muted">{ticket ? 'あなたのチケット' : 'ライブ'}</span>
               {cancelled ? (
                 <span className="badge danger">{ticket?.status === 'refunded' ? '中止・返金済み' : '公演中止'}</span>
               ) : ticket ? (
@@ -494,7 +495,7 @@ export default function HomePage() {
                 <dt>日付</dt>
                 <dd className="num">
                   {fmtDay(ev.starts_at)}
-                  <span style={{ fontSize: 14, fontWeight: 500, marginLeft: 4, color: 'var(--ink-2)' }}>{fmtWeek(ev.starts_at)}</span>
+                  <span className="metal-sub" style={{ fontSize: 14, fontWeight: 500, marginLeft: 4 }}>{fmtWeek(ev.starts_at)}</span>
                 </dd>
               </div>
               <div>
