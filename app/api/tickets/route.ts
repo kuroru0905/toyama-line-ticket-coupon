@@ -15,7 +15,7 @@ export async function GET(req: Request) {
 
     const { data: events, error } = await supabase
       .from('live_events')
-      .select('id, title, venue, starts_at, price_jpy, capacity, description, presale_start, general_sale_start')
+      .select('id, title, venue, starts_at, price_jpy, capacity, description, presale_start, general_sale_start, cancelled_at, cancel_reason')
       .eq('is_published', true)
       .order('starts_at', { ascending: true });
 
@@ -29,9 +29,9 @@ export async function GET(req: Request) {
       isSponsor = await isActiveSponsorLineUser(supabase, user.userId);
       const { data: orders, error: ordersError } = await supabase
         .from('ticket_orders')
-        .select('id, event_id, status, amount_jpy, paid_at, used_at')
+        .select('id, event_id, status, amount_jpy, paid_at, used_at, refunded_at')
         .eq('line_user_id', user.userId)
-        .in('status', ['paid', 'used'])
+        .in('status', ['paid', 'used', 'refunded'])
         .order('created_at', { ascending: true });
       if (ordersError) {
         return NextResponse.json({ error: ordersError.message }, { status: 500 });
@@ -44,7 +44,8 @@ export async function GET(req: Request) {
       const entry = getEntryWindow(e.starts_at);
       return {
         ...e,
-        sale_state: getSaleState(e, now),
+        // 公演中止は販売・入場とも止める
+        sale_state: e.cancelled_at ? 'cancelled' : getSaleState(e, now),
         sale_opens_at: nextSaleOpensAt(e),
         entry_opens_at: entry.opensAt,
         entry_closes_at: entry.closesAt,

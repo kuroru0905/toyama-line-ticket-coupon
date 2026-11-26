@@ -277,6 +277,11 @@ h3 {
   color: var(--brand);
   border-color: #bcd0ff;
 }
+.badge.danger {
+  background: var(--danger-soft);
+  color: var(--danger);
+  border-color: #f4b8b2;
+}
 
 /* ===== チケット（半券つき） ===== */
 .ticket {

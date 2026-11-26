@@ -19,15 +19,23 @@ export async function POST(req: Request, context: { params: { id: string } }) {
 
     const { data: order, error: orderError } = await supabase
       .from('ticket_orders')
-      .select('id, status, live_events(starts_at)')
+      .select('id, status, live_events(starts_at, cancelled_at)')
       .eq('id', orderId)
       .eq('line_user_id', user.userId)
       .maybeSingle();
     if (orderError) {
       return NextResponse.json({ error: orderError.message }, { status: 500 });
     }
-    const ev = order?.live_events as { starts_at: string } | { starts_at: string }[] | null | undefined;
-    const startsAt = Array.isArray(ev) ? ev[0]?.starts_at : ev?.starts_at;
+    const ev = order?.live_events as
+      | { starts_at: string; cancelled_at: string | null }
+      | { starts_at: string; cancelled_at: string | null }[]
+      | null
+      | undefined;
+    const evRow = Array.isArray(ev) ? ev[0] : ev;
+    const startsAt = evRow?.starts_at;
+    if (evRow?.cancelled_at) {
+      return NextResponse.json({ error: 'この公演は中止になりました（お支払いは全額返金します）' }, { status: 409 });
+    }
     if (!order || !startsAt) {
       return NextResponse.json({ error: 'このチケットは利用できません' }, { status: 404 });
     }
