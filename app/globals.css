@@ -627,3 +627,51 @@ h3 {
   display: inline;
   font-size: inherit;
 }
+
+/* ===== チケットの上半分：なめらかな金属の面（外山企画サイトの見本チケットと同じ） =====
+   細い筋の模様はつけない。中央の明るい帯＋カーソル・指に合わせてゆっくり流れる光 */
+.metal-surface {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  color: var(--metal-ink);
+  background-image: var(--metal-soft);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.75), inset 0 -1px 0 rgba(0, 0, 0, 0.06);
+}
+.metal-surface::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background: linear-gradient(115deg, transparent 36%, rgba(255, 255, 255, 0.42) 50%, transparent 64%);
+  background-size: 260% 100%;
+  background-position: calc(100% - var(--gx, 35%)) 0;
+  transition: background-position 700ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.metal-surface > * {
+  position: relative;
+  z-index: 1;
+}
+.metal-surface .muted,
+.metal-surface .ticket-meta dt,
+.metal-surface .ticket-desc,
+.metal-surface .metal-sub {
+  color: var(--metal-sub);
+}
+.ticket-body.metal-surface {
+  border-radius: 24px 24px 0 0;
+}
+.metal-surface.metal-silver {
+  --metal-sub: #44464c;
+  --metal-soft: linear-gradient(135deg, #f6f7f9 0%, #d3d8e0 30%, #ffffff 52%, #c7cdd7 74%, #e9ecf1 100%);
+}
+.metal-surface.metal-cobalt {
+  --metal-sub: rgba(255, 255, 255, 0.88);
+  --metal-soft: linear-gradient(135deg, #2c62ec 0%, #1745c4 30%, #3a6ef2 52%, #1540b5 74%, #2457e0 100%);
+}
+@media (prefers-reduced-motion: reduce) {
+  .metal-surface::after {
+    transition: none;
+  }
+}
