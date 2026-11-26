@@ -40,8 +40,8 @@ body {
   background: var(--surface);
   color: var(--ink);
   /* Apple端末ではSF Pro＋ヒラギノ、それ以外はInter＋Noto Sans JP */
-  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro JP', 'SF Pro Text', var(--font-latin), 'Hiragino Sans',
-    'Hiragino Kaku Gothic ProN', var(--font-jp), sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro JP', 'SF Pro Text', var(--font-latin, 'Inter'), 'Hiragino Sans',
+    'Hiragino Kaku Gothic ProN', 'Noto Sans JP', 'Noto Sans CJK JP', 'Yu Gothic UI', 'Yu Gothic', Meiryo, sans-serif;
   font-size: 17px;
   line-height: 1.55;
   letter-spacing: 0.01em;
