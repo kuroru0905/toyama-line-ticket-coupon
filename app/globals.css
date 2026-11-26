@@ -40,8 +40,8 @@ body {
   background: var(--surface);
   color: var(--ink);
   /* Apple端末ではSF Pro＋ヒラギノ、それ以外はInter＋Noto Sans JP */
-  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro JP', 'SF Pro Text', var(--font-latin), 'Hiragino Sans',
-    'Hiragino Kaku Gothic ProN', var(--font-jp), sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro JP', 'SF Pro Text', var(--font-latin, 'Inter'), 'Hiragino Sans',
+    'Hiragino Kaku Gothic ProN', 'Noto Sans JP', 'Noto Sans CJK JP', 'Yu Gothic UI', 'Yu Gothic', Meiryo, sans-serif;
   font-size: 17px;
   line-height: 1.55;
   letter-spacing: 0.01em;
@@ -668,7 +668,13 @@ h3 {
 }
 .metal-surface.metal-cobalt {
   --metal-sub: rgba(255, 255, 255, 0.88);
-  --metal-soft: linear-gradient(135deg, #2c62ec 0%, #1745c4 30%, #3a6ef2 52%, #1540b5 74%, #2457e0 100%);
+  /* 青はテカリを少し控えめに：中央の明るい帯を落ち着いた青にする */
+  --metal-soft: linear-gradient(135deg, #2a5fe6 0%, #1847c6 30%, #2f64e8 52%, #1642b6 74%, #2356dc 100%);
+}
+.metal-surface.metal-cobalt::after {
+  background: linear-gradient(115deg, transparent 38%, rgba(255, 255, 255, 0.24) 50%, transparent 62%);
+  background-size: 260% 100%;
+  background-position: calc(100% - var(--gx, 35%)) 0;
 }
 @media (prefers-reduced-motion: reduce) {
   .metal-surface::after {
