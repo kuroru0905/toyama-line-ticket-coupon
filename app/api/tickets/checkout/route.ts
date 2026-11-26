@@ -21,7 +21,7 @@ export async function POST(req: Request) {
 
     const { data: event, error: eventError } = await supabase
       .from('live_events')
-      .select('id, title, price_jpy, capacity, starts_at, presale_start, general_sale_start')
+      .select('id, title, price_jpy, capacity, starts_at, presale_start, general_sale_start, cancelled_at')
       .eq('id', body.eventId)
       .eq('is_published', true)
       .maybeSingle();
@@ -30,6 +30,10 @@ export async function POST(req: Request) {
     }
     if (!event) {
       return NextResponse.json({ error: 'この公演は販売していません' }, { status: 404 });
+    }
+
+    if (event.cancelled_at) {
+      return NextResponse.json({ error: 'この公演は中止になりました' }, { status: 409 });
     }
 
     // 販売期間のチェック（開演後は販売終了／先行販売はスポンサーのみ）

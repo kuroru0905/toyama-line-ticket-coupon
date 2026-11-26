@@ -22,7 +22,9 @@ type LiveEvent = {
   description: string;
   presale_start: string | null;
   general_sale_start: string | null;
-  sale_state: 'before' | 'presale' | 'general' | 'ended';
+  sale_state: 'before' | 'presale' | 'general' | 'ended' | 'cancelled';
+  cancelled_at: string | null;
+  cancel_reason: string | null;
   sale_opens_at: string | null;
   entry_opens_at: string;
   entry_closes_at: string;
@@ -31,7 +33,8 @@ type LiveEvent = {
 type Ticket = {
   id: string;
   event_id: string;
-  status: 'paid' | 'used';
+  status: 'paid' | 'used' | 'refunded';
+  refunded_at?: string | null;
   amount_jpy: number;
   paid_at: string | null;
   used_at: string | null;
@@ -365,12 +368,14 @@ export default function HomePage() {
       presale: { label: 'スポンサー先行', cls: 'warn' },
       general: { label: '販売中', cls: 'ok' },
       ended: { label: '販売終了', cls: '' },
+      cancelled: { label: '公演中止', cls: 'danger' },
     };
     const b = map[ev.sale_state];
     return <span className={`badge ${b.cls}`}>{b.label}</span>;
   };
 
   const renderBuyArea = (ev: LiveEvent) => {
+    if (ev.sale_state === 'cancelled') return cancelNotice(ev, null);
     if (ev.sale_state === 'ended') return <p className="muted">開演時刻を過ぎたので、販売を終えました。</p>;
     if (ev.sale_state === 'before') {
       return (
@@ -420,6 +425,21 @@ export default function HomePage() {
     );
   };
 
+  // 公演中止のお知らせ（チケットを持っていた人には返金のことも）
+  const cancelNotice = (ev: LiveEvent, ticket: Ticket | null) => (
+    <div className="notice danger" style={{ margin: 0 }}>
+      <strong>この公演は中止になりました</strong>
+      {ev.cancel_reason ? `${ev.cancel_reason} ` : ''}
+      {ticket?.status === 'refunded' ? (
+        <>
+          お支払いの<strong className="em">全額を返金しました</strong>。カードの明細に反映されるまで5〜10営業日ほどかかります。
+        </>
+      ) : ticket ? (
+        <>お支払いは全額返金します。手続きが終わるまでお待ちください。</>
+      ) : null}
+    </div>
+  );
+
   const renderEntryArea = (ev: LiveEvent, ticket: Ticket) => {
     const now = Date.now();
     if (now < new Date(ev.entry_opens_at).getTime()) {
@@ -443,18 +463,29 @@ export default function HomePage() {
   };
 
   const renderTickets = () => {
-    // チケットを持っていない終了済みの公演は出さない
-    const list = events.filter((ev) => ev.sale_state !== 'ended' || tickets.some((t) => t.event_id === ev.id));
+    // チケットを持っていない終了済みの公演は出さない。中止の公演は、開演時刻までは誰にでも知らせる
+    const list = events.filter((ev) => {
+      if (tickets.some((t) => t.event_id === ev.id)) return true;
+      if (ev.sale_state === 'cancelled') return Date.now() < new Date(ev.starts_at).getTime();
+      return ev.sale_state !== 'ended';
+    });
     if (list.length === 0) return <p className="empty">いま販売しているライブはありません。決まったら公式LINEでお知らせします。</p>;
     return list.map((ev) => {
       const ticket = tickets.find((t) => t.event_id === ev.id);
       const used = ticket?.status === 'used';
+      const cancelled = ev.sale_state === 'cancelled';
       return (
         <article key={ev.id} className="ticket tilt" aria-label={ev.title} data-active="false" {...tiltHandlers}>
           <div className="ticket-body">
             <div className="ticket-head">
-              {ticket && !used ? <span className="metal-chip metal-cobalt">あなたのチケット</span> : <span className="muted">{ticket ? 'あなたのチケット' : 'ライブ'}</span>}
-              {ticket ? <span className={`badge ${used ? '' : 'brand'}`}>{used ? '入場済み' : '購入済み'}</span> : saleBadge(ev)}
+              {ticket && !used && !cancelled ? <span className="metal-chip metal-cobalt">あなたのチケット</span> : <span className="muted">{ticket ? 'あなたのチケット' : 'ライブ'}</span>}
+              {cancelled ? (
+                <span className="badge danger">{ticket?.status === 'refunded' ? '中止・返金済み' : '公演中止'}</span>
+              ) : ticket ? (
+                <span className={`badge ${used ? '' : 'brand'}`}>{used ? '入場済み' : '購入済み'}</span>
+              ) : (
+                saleBadge(ev)
+              )}
             </div>
             <h2 className="ticket-title">{ev.title}</h2>
             <div className="muted">{ev.venue}</div>
@@ -479,9 +510,10 @@ export default function HomePage() {
           </div>
           <div className="perf" />
           <div className="stub">
+            {cancelled && ticket && cancelNotice(ev, ticket)}
             {!ticket && renderBuyArea(ev)}
-            {ticket && !used && renderEntryArea(ev, ticket)}
-            {ticket && used && (
+            {!cancelled && ticket && !used && renderEntryArea(ev, ticket)}
+            {!cancelled && ticket && used && (
               <p className="muted" style={{ margin: 0, textAlign: 'center' }}>
                 <span className="num" style={{ fontSize: 17, color: 'var(--ink)' }}>{fmtDateTime(ticket.used_at)}</span> に入場しました
               </p>
