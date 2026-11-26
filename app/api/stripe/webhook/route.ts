@@ -10,7 +10,8 @@ export const dynamic = 'force-dynamic';
 export async function POST(req: Request) {
   const secret = process.env.STRIPE_WEBHOOK_SECRET;
   if (!secret) {
-    return NextResponse.json({ error: 'STRIPE_WEBHOOK_SECRET が未設定です' }, { status: 500 });
+    // チケット購入の確定は、外山企画サイト側のWebhookでも行っている。設定の有無は外に出さない
+    return NextResponse.json({ error: 'not available' }, { status: 404 });
   }
 
   const payload = await req.text();
