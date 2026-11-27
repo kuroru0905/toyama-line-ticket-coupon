@@ -3,7 +3,7 @@ import { getSupabaseAdmin } from '../../../lib/supabaseAdmin';
 import { getLineUserFromRequest } from '../../../lib/lineAuth';
 import { errorResponse } from '../../../lib/apiError';
 import { activeSponsorIds } from '../../../lib/sponsorLink';
-import { getCouponEntitlement, entitlementMessage, type Entitlement } from '../../../lib/couponEntitlement';
+import { couponSponsorsForEvent, getCouponEntitlement, entitlementMessage, type Entitlement } from '../../../lib/couponEntitlement';
 
 export const dynamic = 'force-dynamic';
 
@@ -25,14 +25,21 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    // 解約・未払いになったスポンサーのクーポンは出さない（外山企画の直接登録分＝sponsor_idなしは表示）
-    const activeIds = await activeSponsorIds(supabase);
-    const visible = (data ?? []).filter((c) => !c.sponsor_id || activeIds.has(c.sponsor_id));
-
     let entitlement: Entitlement | null = null;
     if (user) {
       entitlement = await getCouponEntitlement(supabase, user.userId);
     }
+
+    // 入場したライブがあるとき：そのライブに協賛した企業・お店のクーポンだけ（外山企画の直接登録分＝sponsor_idなしは表示）
+    // まだ入場していないとき：協賛中のスポンサーのクーポンを見本として出す（解約・未払い・期間終了は出さない）
+    let allowed: (id: string) => boolean;
+    if (entitlement?.eventId) {
+      allowed = await couponSponsorsForEvent(supabase, entitlement.eventId);
+    } else {
+      const activeIds = await activeSponsorIds(supabase);
+      allowed = (id: string) => activeIds.has(id);
+    }
+    const visible = (data ?? []).filter((c) => !c.sponsor_id || allowed(c.sponsor_id));
 
     const coupons = visible.map((c) => {
       // 「使用済み」は今回の入場で使ったクーポンだけ（前のライブで使ったお店も、新しい入場ではまた使える）
