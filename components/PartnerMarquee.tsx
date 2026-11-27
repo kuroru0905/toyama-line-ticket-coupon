@@ -3,11 +3,13 @@
 // 画面上部の横スクロール：まちきっぷ パートナーズのロゴまたは名前を流す（ファン枠は名前だけ）
 // ロゴは灰色で静かに流れ、触れると色が戻って止まる（スポンサーサイトと同じ見せ方）
 import React, { useEffect, useState } from 'react';
+import { trimLogo } from '@/lib/trimLogo';
 
 type Partner = { id: string; name: string; logoUrl: string | null; tier: 'corporate' | 'store' | 'fan' };
 
 export default function PartnerMarquee() {
   const [partners, setPartners] = useState<Partner[]>([]);
+  const [trimmed, setTrimmed] = useState<Record<string, string>>({}); // 余白を切り落としたロゴ
 
   useEffect(() => {
     let alive = true;
@@ -19,6 +21,19 @@ export default function PartnerMarquee() {
       alive = false;
     };
   }, []);
+
+  // ロゴの透明な余白を切り落としてから出す（項目どうしの間隔をそろえるため）
+  useEffect(() => {
+    let alive = true;
+    partners.forEach((p) => {
+      if (!p.logoUrl) return;
+      const src = p.logoUrl;
+      trimLogo(src).then((t) => alive && setTrimmed((m) => (m[src] === t ? m : { ...m, [src]: t })));
+    });
+    return () => {
+      alive = false;
+    };
+  }, [partners]);
 
   if (partners.length === 0) return null;
 
@@ -35,7 +50,7 @@ export default function PartnerMarquee() {
             <li key={`${p.id}-${i}`} className="marquee-item" aria-hidden={i >= partners.length ? true : undefined}>
               {p.logoUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={p.logoUrl} alt={p.name} className="marquee-logo" loading="lazy" decoding="async" />
+                <img src={trimmed[p.logoUrl] ?? p.logoUrl} alt={p.name} className="marquee-logo" decoding="async" />
               ) : (
                 <span className="marquee-name">{p.name}</span>
               )}
