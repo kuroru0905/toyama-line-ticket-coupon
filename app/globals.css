@@ -681,3 +681,72 @@ h3 {
     transition: none;
   }
 }
+
+/* ===== まちきっぷ パートナーズ：上部の横スクロール ===== */
+.marquee {
+  position: relative;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  background: var(--paper);
+  border-bottom: 1px solid var(--line);
+  overflow: hidden;
+}
+.marquee-viewport {
+  flex: 1;
+  overflow: hidden;
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent);
+  mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent);
+}
+.marquee-track {
+  display: flex;
+  align-items: center;
+  gap: 40px;
+  width: max-content;
+  margin: 0;
+  padding: 0 40px 0 0;
+  list-style: none;
+  animation: marquee-scroll var(--marquee-duration, 30s) linear infinite;
+}
+.marquee:hover .marquee-track,
+.marquee:focus-within .marquee-track {
+  animation-play-state: paused;
+}
+@keyframes marquee-scroll {
+  to {
+    transform: translateX(-50%);
+  }
+}
+.marquee-item {
+  flex: none;
+  display: flex;
+  align-items: center;
+}
+.marquee-logo {
+  display: block;
+  height: 22px;
+  width: auto;
+  max-width: 112px;
+  object-fit: contain;
+  filter: grayscale(1);
+  opacity: 0.6;
+  transition: filter 0.2s, opacity 0.2s;
+}
+.marquee-item:hover .marquee-logo {
+  filter: none;
+  opacity: 1;
+}
+.marquee-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink-2);
+  white-space: nowrap;
+}
+@media (prefers-reduced-motion: reduce) {
+  .marquee-track {
+    animation: none;
+  }
+  .marquee-viewport {
+    overflow-x: auto;
+  }
+}
