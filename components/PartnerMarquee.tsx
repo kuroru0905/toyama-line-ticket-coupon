@@ -1,10 +1,10 @@
 'use client';
 
-// 画面上部の横スクロール：まちきっぷ パートナーズ（企業・店舗）のロゴまたは名前を流す
+// 画面上部の横スクロール：まちきっぷ パートナーズのロゴまたは名前を流す（ファン枠は名前だけ）
 // ロゴは灰色で静かに流れ、触れると色が戻って止まる（スポンサーサイトと同じ見せ方）
 import React, { useEffect, useState } from 'react';
 
-type Partner = { id: string; name: string; logoUrl: string | null; tier: 'corporate' | 'store' };
+type Partner = { id: string; name: string; logoUrl: string | null; tier: 'corporate' | 'store' | 'fan' };
 
 export default function PartnerMarquee() {
   const [partners, setPartners] = useState<Partner[]>([]);
