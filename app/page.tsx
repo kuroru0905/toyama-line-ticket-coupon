@@ -2,6 +2,7 @@
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import liff from '@line/liff';
+import PartnerMarquee from '@/components/PartnerMarquee';
 
 type Coupon = {
   id: string;
@@ -649,6 +650,7 @@ export default function HomePage() {
 
   return (
     <>
+      <PartnerMarquee />
       <main className="app">
         <header className="topbar">
           <h1>
