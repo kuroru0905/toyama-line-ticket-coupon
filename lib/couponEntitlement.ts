@@ -8,6 +8,8 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 //  3. 期限は「ライブ当日の翌日 23:59（日本時間）」まで
 //  4. 別のイベントで入場すると、また全部のお店で1回ずつ使える
 //  5. 前のライブの権利は持ち越さない（いちばん新しい入場の権利だけが有効）
+//  6. 使えるのは、そのライブに協賛（支払い済み）した企業・お店のクーポンだけ
+//     （外山企画が直接載せたクーポンと、イベントごとの協賛がまだない月額契約のスポンサーは、どのライブでも使える）
 // ============================================================
 
 export type EntitlementState =
@@ -19,6 +21,7 @@ export type EntitlementState =
 export type Entitlement = {
   state: EntitlementState;
   ticketOrderId: string | null; // 権利の元になっている入場（チケット）
+  eventId: string | null;
   eventTitle: string | null;
   enteredAt: string | null;
   deadline: string | null; // ISO
@@ -38,6 +41,7 @@ export async function getCouponEntitlement(supabase: SupabaseClient, lineUserId:
   const empty: Entitlement = {
     state: 'none',
     ticketOrderId: null,
+    eventId: null,
     eventTitle: null,
     enteredAt: null,
     deadline: null,
@@ -47,7 +51,7 @@ export async function getCouponEntitlement(supabase: SupabaseClient, lineUserId:
   // いちばん新しい入場
   const { data: entered, error } = await supabase
     .from('ticket_orders')
-    .select('id, used_at, live_events(title, starts_at)')
+    .select('id, used_at, event_id, live_events(title, starts_at)')
     .eq('line_user_id', lineUserId)
     .eq('status', 'used')
     .not('used_at', 'is', null)
@@ -85,6 +89,7 @@ export async function getCouponEntitlement(supabase: SupabaseClient, lineUserId:
   const base: Entitlement = {
     ...empty,
     ticketOrderId: entered.id,
+    eventId: (entered.event_id as string | null) ?? null,
     eventTitle: ev?.title ?? null,
     enteredAt: entered.used_at as string,
     deadline: deadline.toISOString(),
@@ -107,4 +112,24 @@ export function entitlementMessage(e: Entitlement): string {
     default:
       return '';
   }
+}
+
+// そのライブで使えるクーポンのスポンサーか（ルール6）
+//  ・そのライブに支払い済みの協賛がある企業・お店
+//  ・イベントごとの協賛が1件もない、契約中のスポンサー（今までの月額契約）
+export async function couponSponsorsForEvent(
+  supabase: SupabaseClient,
+  eventId: string | null
+): Promise<(sponsorId: string) => boolean> {
+  const [{ data: active }, { data: withSponsorship }, { data: forEvent }] = await Promise.all([
+    supabase.from('sponsors').select('id').eq('status', 'active'),
+    supabase.from('event_sponsorships').select('sponsor_id'),
+    eventId
+      ? supabase.from('event_sponsorships').select('sponsor_id').eq('event_id', eventId).eq('status', 'paid')
+      : Promise.resolve({ data: [] as { sponsor_id: string }[] }),
+  ]);
+  const activeSet = new Set((active ?? []).map((r) => r.id as string));
+  const hasAny = new Set((withSponsorship ?? []).map((r) => r.sponsor_id as string));
+  const eventSet = new Set((forEvent ?? []).map((r) => r.sponsor_id as string));
+  return (sponsorId: string) => eventSet.has(sponsorId) || (activeSet.has(sponsorId) && !hasAny.has(sponsorId));
 }

@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '../../../../../lib/supabaseAdmin';
 import { requireLineUser } from '../../../../../lib/lineAuth';
 import { errorResponse } from '../../../../../lib/apiError';
-import { getCouponEntitlement, entitlementMessage } from '../../../../../lib/couponEntitlement';
+import { couponSponsorsForEvent, getCouponEntitlement, entitlementMessage } from '../../../../../lib/couponEntitlement';
 
 export const dynamic = 'force-dynamic';
 
@@ -32,22 +32,18 @@ export async function POST(req: Request, context: { params: { id: string } }) {
       return NextResponse.json({ error: 'このクーポンは利用対象外です' }, { status: 404 });
     }
 
-    // 解約・未払いのスポンサーのクーポンは使えない
-    if (coupon.sponsor_id) {
-      const { data: sponsor } = await supabase
-        .from('sponsors')
-        .select('status')
-        .eq('id', coupon.sponsor_id)
-        .maybeSingle();
-      if (!sponsor || sponsor.status !== 'active') {
-        return NextResponse.json({ error: 'このクーポンは現在掲載を終了しています' }, { status: 404 });
-      }
-    }
-
     // 今、クーポンを使える権利があるか
     const entitlement = await getCouponEntitlement(supabase, user.userId);
     if (entitlement.state !== 'available' || !entitlement.ticketOrderId) {
       return NextResponse.json({ error: entitlementMessage(entitlement) }, { status: 403 });
+    }
+
+    // 入場したライブに協賛した企業・お店のクーポンだけ使える（外山企画の直接登録分は除く）
+    if (coupon.sponsor_id) {
+      const allowed = await couponSponsorsForEvent(supabase, entitlement.eventId);
+      if (!allowed(coupon.sponsor_id)) {
+        return NextResponse.json({ error: 'このクーポンは、今回のライブでは使えません（協賛したライブの入場者向けです）' }, { status: 403 });
+      }
     }
 
     if (entitlement.used[couponId]) {
