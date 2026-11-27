@@ -11,6 +11,9 @@ type Coupon = {
   benefit_detail: string;
   is_used: boolean;
   used_at: string | null;
+  usable: boolean; // 今このお店で使えるか（期限内の入場の権利が残っている）
+  deadline: string | null; // 使える期限（ライブの3か月後）
+  event_title: string | null; // どのライブの入場特典か
 };
 
 type LiveEvent = {
@@ -43,11 +46,12 @@ type Ticket = {
 
 type Tab = 'tickets' | 'coupons';
 
-// クーポンを使える権利（入場1回につき各店1回ずつ・ライブの翌日23:59まで）
+// クーポンを使える権利（入場1回につき各店1回ずつ・ライブの3か月後まで。前のライブの権利も期限まで使える）
 type CouponEntitlement = {
   state: 'none' | 'not_entered' | 'available' | 'expired';
   eventTitle: string | null;
   deadline: string | null;
+  liveCount: number; // 期限内の入場の数
   message: string;
 };
 
@@ -312,7 +316,7 @@ export default function HomePage() {
 
   const askCoupon = (coupon: Coupon) => {
     if (coupon.is_used || busyId || !requireLogin()) return;
-    if (entitlement?.state !== 'available') {
+    if (!coupon.usable) {
       setErrorMsg(entitlement?.message || 'いまはクーポンを使えません');
       return;
     }
@@ -531,9 +535,13 @@ export default function HomePage() {
     if (entitlement.state === 'available') {
       return (
         <div className="notice warn">
-          <strong>お店のクーポンが、各店1回ずつ使えます</strong>
-          {entitlement.eventTitle ? `「${entitlement.eventTitle}」の入場特典です。` : ''}
-          何軒でもはしごできます。<strong className="em num" style={{ fontSize: 16 }}>{fmtDateTime(entitlement.deadline)} まで</strong>使えます。
+          <strong>協賛店のクーポンが、各店1回ずつ使えます</strong>
+          {entitlement.liveCount > 1
+            ? `入場した${entitlement.liveCount}つのライブの特典です。`
+            : entitlement.eventTitle
+              ? `「${entitlement.eventTitle}」の入場特典です。`
+              : ''}
+          ライブ帰りのはしごにも、後日の来店にも使えます。期限はライブの3か月後で、お店ごとに下に書いてあります。
         </div>
       );
     }
@@ -541,7 +549,6 @@ export default function HomePage() {
   };
 
   const renderCoupons = () => {
-    const canUse = entitlement?.state === 'available';
     const lockedLabel = () => {
       switch (entitlement?.state) {
         case 'expired':
@@ -557,6 +564,7 @@ export default function HomePage() {
         {entitlementNotice()}
         {coupons.length === 0 && <p className="empty">いま使えるクーポンはありません。</p>}
         {coupons.map((coupon) => {
+          const canUse = coupon.usable;
           const locked = !coupon.is_used && !canUse;
           return (
             <section key={coupon.id} className={`coupon ${coupon.is_used ? 'used' : ''}`} aria-label={`${coupon.shop_name}のクーポン`}>
@@ -566,9 +574,21 @@ export default function HomePage() {
               </div>
               <h3>{coupon.benefit_title}</h3>
               <p>{coupon.benefit_detail}</p>
+              {canUse && coupon.deadline && (
+                <p className="muted" style={{ margin: '0 0 10px' }}>
+                  <strong className="num" style={{ color: 'var(--ink)' }}>{fmtDateTime(coupon.deadline)}</strong> まで
+                  {coupon.event_title ? `（${coupon.event_title}の入場特典）` : ''}
+                </p>
+              )}
               {coupon.is_used ? (
                 <p className="muted" style={{ margin: 0 }}>
-                  <span className="num" style={{ fontSize: 16, color: 'var(--ink)' }}>{fmtDateTime(coupon.used_at)}</span> に使いました
+                  {coupon.used_at ? (
+                    <>
+                      <span className="num" style={{ fontSize: 16, color: 'var(--ink)' }}>{fmtDateTime(coupon.used_at)}</span> に使いました。次のライブに入場すると、また使えます
+                    </>
+                  ) : (
+                    '使用済みです。次のライブに入場すると、また使えます'
+                  )}
                 </p>
               ) : locked ? (
                 <button type="button" className="btn secondary" disabled>
@@ -628,7 +648,7 @@ export default function HomePage() {
               </div>
               <ul>
                 <li>お店の人の前で押してください。</li>
-                <li>同じお店のクーポンは、今回のライブでは<strong className="em">1回だけ</strong>です。ほかのお店のクーポンは続けて使えます。</li>
+                <li>同じお店のクーポンは、入場1回につき<strong className="em">1回だけ</strong>です。ほかのお店のクーポンは続けて使えます。</li>
                 <li>一度使うと<strong className="em">元に戻せません</strong>。</li>
               </ul>
               <div className="actions">
