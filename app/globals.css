@@ -701,10 +701,10 @@ h3 {
 .marquee-track {
   display: flex;
   align-items: center;
-  gap: 40px;
+  gap: 32px;
   width: max-content;
   margin: 0;
-  padding: 0 40px 0 0;
+  padding: 0 32px 0 0;
   list-style: none;
   animation: marquee-scroll var(--marquee-duration, 30s) linear infinite;
 }
