@@ -10,7 +10,8 @@ const latin = Inter({ subsets: ['latin'], display: 'swap', variable: '--font-lat
 
 export const metadata: Metadata = {
   title: 'まちきっぷ｜外山企画',
-  description: 'まちきっぷ：ライブのチケットを買って入場すると、登別のお店のクーポンが各店1回ずつ使えます。'
+  description:
+    'まちきっぷ：若者と地元企業をつなぐ登別のライブ。チケットを買って入場すると、スポンサーのお店や企業のクーポンが各店1回ずつ使えます。',
 };
 
 export const viewport: Viewport = {
