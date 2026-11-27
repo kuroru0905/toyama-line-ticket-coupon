@@ -695,7 +695,7 @@ export default function HomePage() {
           <a href={`${LEGAL_SITE}/privacy`} target="_blank" rel="noopener noreferrer">
             プライバシーポリシー
           </a>
-          <div>外山企画</div>
+          <div>まちきっぷ｜外山企画</div>
         </footer>
       </main>
 

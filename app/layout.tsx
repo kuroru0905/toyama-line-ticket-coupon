@@ -9,8 +9,9 @@ import './globals.css';
 const latin = Inter({ subsets: ['latin'], display: 'swap', variable: '--font-latin' });
 
 export const metadata: Metadata = {
-  title: '登別ライブチケット＆クーポン | 外山企画',
-  description: 'LINE公式アカウントでのチケット購入・発券・利用と、入場者特典のスポンサー店舗クーポン利用システム',
+  title: 'まちきっぷ｜外山企画',
+  description:
+    'まちきっぷ：若者と地元企業をつなぐ登別のライブ。チケットを買って入場すると、スポンサーのお店や企業のクーポンが各店1回ずつ使えます。',
 };
 
 export const viewport: Viewport = {
